@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User
+from django.db import models
 from .models import Customer, Vehicle, Order, InventoryItem, Branch, ServiceType, ServiceAddon, LabourCode, DelayReasonCategory, DelayReason, Salesperson, Invoice, InvoiceLineItem, Profile
 
 class ProfileInline(admin.StackedInline):
@@ -23,17 +24,6 @@ class CustomUserAdmin(BaseUserAdmin):
 
 admin.site.unregister(User)
 admin.site.register(User, CustomUserAdmin)
-
-@admin.register(Branch)
-class BranchAdmin(admin.ModelAdmin):
-    list_display = ('name', 'code', 'region', 'is_active', 'user_count')
-    list_filter = ('is_active', 'region')
-    search_fields = ('name', 'code', 'region')
-    readonly_fields = ('created_at',)
-
-    def user_count(self, obj):
-        return obj.profiles.count()
-    user_count.short_description = 'Users'
 
 @admin.register(Customer)
 class CustomerAdmin(admin.ModelAdmin):
@@ -211,9 +201,40 @@ class LabourCodeAdmin(admin.ModelAdmin):
 
 @admin.register(Branch)
 class BranchAdmin(admin.ModelAdmin):
-    list_display = ("name", "code", "region", "is_active", "created_at")
+    list_display = ("name", "code", "region", "parent_display", "branch_type", "is_active", "created_at", "user_count")
     search_fields = ("name", "code", "region")
-    list_filter = ("region", "is_active")
+    list_filter = ("region", "is_active", "parent")
+    readonly_fields = ("created_at",)
+    fieldsets = (
+        ('Branch Information', {
+            'fields': ('name', 'code', 'region', 'parent'),
+            'classes': ('wide', 'extrapretty'),
+        }),
+        ('Status', {
+            'fields': ('is_active',),
+            'classes': ('wide', 'extrapretty'),
+        }),
+        ('Timestamps', {
+            'fields': ('created_at',),
+            'classes': ('wide', 'extrapretty'),
+        }),
+    )
+
+    def parent_display(self, obj):
+        if obj.parent:
+            return f"{obj.parent.name} (Main)"
+        return "—"
+    parent_display.short_description = 'Parent Branch'
+
+    def branch_type(self, obj):
+        if obj.parent:
+            return "Sub-Branch"
+        return "Main Branch"
+    branch_type.short_description = 'Type'
+
+    def user_count(self, obj):
+        return obj.profiles.count()
+    user_count.short_description = 'Users'
 
     def get_search_results(self, request, queryset, search_term):
         """Prioritize exact (case-insensitive) name matches for admin autocomplete.
@@ -225,6 +246,31 @@ class BranchAdmin(admin.ModelAdmin):
             if exact_qs.exists():
                 return exact_qs, False
         return super().get_search_results(request, queryset, search_term)
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        # Non-superuser staff can only manage their assigned branch and its sub-branches
+        user_branch = self._get_user_branch(request.user)
+        if user_branch:
+            return qs.filter(models.Q(pk=user_branch.pk) | models.Q(parent=user_branch))
+        return qs.none()
+
+    def has_add_permission(self, request):
+        """Only superusers can add branches."""
+        return request.user.is_superuser
+
+    def has_delete_permission(self, request, obj=None):
+        """Only superusers can delete branches."""
+        return request.user.is_superuser
+
+    def _get_user_branch(self, user):
+        """Get the user's assigned branch."""
+        try:
+            return user.profile.branch
+        except (Profile.DoesNotExist, AttributeError):
+            return None
 
 
 @admin.register(Salesperson)

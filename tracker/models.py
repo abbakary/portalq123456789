@@ -12,6 +12,7 @@ class Branch(models.Model):
     name = models.CharField(max_length=128, unique=True)
     code = models.CharField(max_length=32, unique=True)
     region = models.CharField(max_length=128, blank=True, null=True)
+    parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='sub_branches')
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -20,11 +21,30 @@ class Branch(models.Model):
         indexes = [
             models.Index(fields=["code"], name="idx_branch_code"),
             models.Index(fields=["region"], name="idx_branch_region"),
+            models.Index(fields=["parent"], name="idx_branch_parent"),
         ]
 
     def __str__(self) -> str:
         r = f" ({self.region})" if self.region else ""
         return f"{self.name}{r}"
+
+    def is_main_branch(self) -> bool:
+        """Check if this is a main branch (has no parent)."""
+        return self.parent is None
+
+    def is_sub_branch(self) -> bool:
+        """Check if this is a sub-branch (has a parent)."""
+        return self.parent is not None
+
+    def get_main_branch(self):
+        """Get the top-level main branch."""
+        if self.parent is None:
+            return self
+        return self.parent.get_main_branch()
+
+    def get_all_sub_branches(self):
+        """Get all direct sub-branches."""
+        return self.sub_branches.all()
 
 
 class Salesperson(models.Model):
