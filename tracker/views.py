@@ -5194,18 +5194,35 @@ def api_create_branch(request: HttpRequest):
     """Create a new Branch via JSON API"""
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Invalid method'}, status=405)
+
+    # Only superuser can create branches
+    if not request.user.is_superuser:
+        return JsonResponse({'success': False, 'error': 'Only superusers can create branches'}, status=403)
+
     try:
         payload = json.loads(request.body.decode('utf-8')) if request.body else {}
         name = (payload.get('name') or '').strip()
         code = (payload.get('code') or '').strip().upper()
         region = (payload.get('region') or '').strip() or None
+        parent_id = payload.get('parent_id')
+
         if not name or not code:
             return JsonResponse({'success': False, 'error': 'Name and code are required'}, status=400)
         if Branch.objects.filter(name__iexact=name).exists():
             return JsonResponse({'success': False, 'error': 'A branch with this name already exists'}, status=400)
         if Branch.objects.filter(code__iexact=code).exists():
             return JsonResponse({'success': False, 'error': 'A branch with this code already exists'}, status=400)
-        b = Branch.objects.create(name=name, code=code, region=region, is_active=True)
+
+        parent = None
+        if parent_id:
+            try:
+                parent = Branch.objects.get(pk=parent_id)
+                if parent.parent is not None:
+                    return JsonResponse({'success': False, 'error': 'Cannot create sub-branch of a sub-branch'}, status=400)
+            except Branch.DoesNotExist:
+                return JsonResponse({'success': False, 'error': 'Parent branch not found'}, status=400)
+
+        b = Branch.objects.create(name=name, code=code, region=region, parent=parent, is_active=True)
         return JsonResponse({
             'success': True,
             'branch': {
@@ -5213,6 +5230,7 @@ def api_create_branch(request: HttpRequest):
                 'name': b.name,
                 'code': b.code,
                 'region': b.region,
+                'parent_id': b.parent_id,
                 'is_active': b.is_active,
             }
         })
