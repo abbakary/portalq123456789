@@ -329,7 +329,7 @@
                 {% with u.profile.role as user_role %}
                   {% if user_role %}
                     <span class="role-badge" style="background: #6c63ff; color: white;">
-                      {{ user_role|upper|replace:"_":" " }}
+                      {{ user_role|upper|replace:"_: " }}
                     </span>
                   {% endif %}
                 {% endwith %}
