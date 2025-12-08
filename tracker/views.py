@@ -5245,8 +5245,15 @@ def api_update_branch(request: HttpRequest, pk: int):
     """Update an existing Branch via JSON API"""
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Invalid method'}, status=405)
+
     try:
         branch = get_object_or_404(Branch, pk=pk)
+        user_branch = get_user_branch(request.user)
+
+        # Check permissions: superuser can edit any branch, non-superuser can only edit their own and sub-branches
+        if not request.user.is_superuser and user_branch and branch.pk != user_branch.pk and branch.parent != user_branch:
+            return JsonResponse({'success': False, 'error': 'You do not have permission to edit this branch'}, status=403)
+
         payload = json.loads(request.body.decode('utf-8')) if request.body else {}
         name = (payload.get('name') or '').strip()
         code = (payload.get('code') or '').strip().upper()
@@ -5274,6 +5281,7 @@ def api_update_branch(request: HttpRequest, pk: int):
                 'name': branch.name,
                 'code': branch.code,
                 'region': branch.region,
+                'parent_id': branch.parent_id,
                 'is_active': branch.is_active,
             },
             'message': 'Branch updated successfully'
