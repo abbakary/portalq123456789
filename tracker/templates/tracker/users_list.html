@@ -281,11 +281,11 @@
       <button type="submit" class="btn btn-outline-primary">Search</button>
     </form>
 
-    {% if not user_branch %}
+    {% if branches %}
       <select name="branch" class="form-select branch-filter" onchange="window.location.href='?branch=' + this.value">
         <option value="">All Branches</option>
-        {% for branch in branches %}
-          <option value="{{ branch }}" {% if selected_branch == branch %}selected{% endif %}>{{ branch }}</option>
+        {% for branch_id, branch_name in branches %}
+          <option value="{{ branch_id }}" {% if selected_branch == branch_id %}selected{% endif %}>{{ branch_name }}</option>
         {% endfor %}
       </select>
     {% endif %}
