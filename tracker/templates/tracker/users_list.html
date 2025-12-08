@@ -258,7 +258,11 @@
     <div class="header-title">Users</div>
     <div class="header-subtitle">
       {% if user_branch %}
-        Managing users for <strong>{{ user_branch.name }}</strong>
+        {% if user_branch.is_main_branch %}
+          Managing users for main branch <strong>{{ user_branch.name }}</strong> and its sub-branches
+        {% else %}
+          Managing users for sub-branch <strong>{{ user_branch.name }}</strong>
+        {% endif %}
       {% else %}
         All users across all branches
       {% endif %}
