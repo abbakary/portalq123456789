@@ -1071,9 +1071,10 @@ class AdminUserForm(forms.ModelForm):
             user.groups.add(mgr)
         else:
             user.groups.remove(mgr)
-        # Assign branch on profile
+        # Assign branch and role on profile
         profile, _ = Profile.objects.get_or_create(user=user)
         profile.branch = self.cleaned_data.get('branch')
+        profile.role = self.cleaned_data.get('user_role', 'staff')
         profile.save()
         p1 = self.cleaned_data.get('new_password')
         if p1:
