@@ -588,6 +588,17 @@ function editBranch(id, name, code, region, isActive) {
   new bootstrap.Modal(document.getElementById('editBranchModal')).show();
 }
 
+// Add sub-branch
+function addSubBranch(parentId, parentName) {
+  const form = document.getElementById('addSubBranchForm');
+  form.querySelector('[name="parent_id"]').value = parentId;
+  form.querySelector('#subBranchParentName').value = parentName;
+  form.querySelector('#subBranchName').value = '';
+  form.querySelector('#subBranchCode').value = '';
+  form.querySelector('#subBranchRegion').value = '';
+  new bootstrap.Modal(document.getElementById('addSubBranchModal')).show();
+}
+
 // Update branch
 const editForm = document.getElementById('editBranchForm');
 if (editForm) {
