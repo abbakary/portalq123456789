@@ -5250,16 +5250,24 @@ def api_create_branch(request: HttpRequest):
             # Creating a sub-branch
             try:
                 parent = Branch.objects.get(pk=parent_id)
-                # Only system superuser from main branch can create sub-branches
-                if not request.user.is_superuser:
-                    return JsonResponse({'success': False, 'error': 'Only system superusers can create sub-branches'}, status=403)
+
+                # Check permissions: only system superuser or branch owner can create sub-branches
+                if is_system_superuser(request.user):
+                    # System superuser can create under any main branch
+                    pass
+                elif user_branch and user_branch.is_main_branch() and user_branch.id == parent.id:
+                    # Branch owner can create sub-branches under their own branch
+                    pass
+                else:
+                    return JsonResponse({'success': False, 'error': 'You can only create sub-branches under your own branch'}, status=403)
+
                 if parent.parent is not None:
                     return JsonResponse({'success': False, 'error': 'Cannot create sub-branch of a sub-branch'}, status=400)
             except Branch.DoesNotExist:
                 return JsonResponse({'success': False, 'error': 'Parent branch not found'}, status=400)
         else:
             # Creating a main branch - only system superuser
-            if not request.user.is_superuser:
+            if not is_system_superuser(request.user):
                 return JsonResponse({'success': False, 'error': 'Only system superusers can create main branches'}, status=403)
 
         b = Branch.objects.create(name=name, code=code, region=region, parent=parent, is_active=True)
