@@ -916,6 +916,13 @@ class AdminUserCreateForm(forms.ModelForm):
         label="Assigned Branch",
         widget=forms.Select(attrs={'class': 'form-select'})
     )
+    user_role = forms.ChoiceField(
+        required=False,
+        label="User Role",
+        choices=Profile.ROLE_CHOICES,
+        widget=forms.Select(attrs={'class': 'form-select'}),
+        initial='staff'
+    )
 
     class Meta:
         model = User
@@ -929,6 +936,25 @@ class AdminUserCreateForm(forms.ModelForm):
             'is_staff': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'is_superuser': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
+
+    def __init__(self, *args, creator=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.creator = creator
+
+        # Restrict branch choices based on creator's permissions
+        if creator and not creator.is_superuser:
+            creator_branch = getattr(creator, 'profile', None) and creator.profile.branch
+            if creator_branch and creator_branch.is_main_branch():
+                # Main branch user can assign to their branch and sub-branches
+                branch_ids = [creator_branch.id]
+                branch_ids.extend(creator_branch.sub_branches.values_list('id', flat=True))
+                self.fields['branch'].queryset = Branch.objects.filter(id__in=branch_ids, is_active=True).order_by('name')
+            elif creator_branch:
+                # Sub-branch user can only assign to their own branch
+                self.fields['branch'].queryset = Branch.objects.filter(id=creator_branch.id, is_active=True)
+            else:
+                # No branch assigned, show no options
+                self.fields['branch'].queryset = Branch.objects.none()
 
     def clean(self):
         cleaned = super().clean()
@@ -946,9 +972,10 @@ class AdminUserCreateForm(forms.ModelForm):
         mgr, _ = Group.objects.get_or_create(name="manager")
         if self.cleaned_data.get('group_manager'):
             user.groups.add(mgr)
-        # Ensure profile and assign branch
+        # Ensure profile and assign branch with role
         profile, _ = Profile.objects.get_or_create(user=user)
         profile.branch = self.cleaned_data.get('branch')
+        profile.role = self.cleaned_data.get('user_role', 'staff')
         profile.save()
         return user
 
