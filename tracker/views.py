@@ -5257,8 +5257,19 @@ def api_update_branch(request: HttpRequest, pk: int):
         branch = get_object_or_404(Branch, pk=pk)
         user_branch = get_user_branch(request.user)
 
-        # Check permissions: superuser can edit any branch, non-superuser can only edit their own and sub-branches
-        if not request.user.is_superuser and user_branch and branch.pk != user_branch.pk and branch.parent != user_branch:
+        # Permission check: who can edit this branch?
+        can_edit = False
+        if request.user.is_superuser:
+            can_edit = True
+        elif user_branch:
+            if user_branch.is_main_branch():
+                # Main branch user can edit their main branch and all sub-branches
+                can_edit = (branch.pk == user_branch.pk) or (branch.parent == user_branch)
+            else:
+                # Sub-branch user can only edit their own branch
+                can_edit = (branch.pk == user_branch.pk)
+
+        if not can_edit:
             return JsonResponse({'success': False, 'error': 'You do not have permission to edit this branch'}, status=403)
 
         payload = json.loads(request.body.decode('utf-8')) if request.body else {}
