@@ -5300,9 +5300,11 @@ def api_update_branch(request: HttpRequest, pk: int):
 
         # Permission check: who can edit this branch?
         can_edit = False
-        if request.user.is_superuser:
+        if is_system_superuser(request.user):
+            # System superuser can edit any branch
             can_edit = True
         elif user_branch:
+            # Branch-assigned user can edit their branch and sub-branches
             if user_branch.is_main_branch():
                 # Main branch user can edit their main branch and all sub-branches
                 can_edit = (branch.pk == user_branch.pk) or (branch.parent == user_branch)
