@@ -5672,7 +5672,7 @@ def users_list(request: HttpRequest):
 def user_create(request: HttpRequest):
     from .forms import AdminUserCreateForm
     if request.method == 'POST':
-        form = AdminUserCreateForm(request.POST)
+        form = AdminUserCreateForm(request.POST, creator=request.user)
         if form.is_valid():
             new_user = form.save()
             add_audit_log(request.user, 'user_create', f'Created user {new_user.username}')
@@ -5681,7 +5681,7 @@ def user_create(request: HttpRequest):
         else:
             messages.error(request, 'Please correct errors and try again')
     else:
-        form = AdminUserCreateForm()
+        form = AdminUserCreateForm(creator=request.user)
     return render(request, 'tracker/user_create.html', { 'form': form })
 
 @login_required
