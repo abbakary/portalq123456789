@@ -13,7 +13,82 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         self.stdout.write('Seeding service templates, types, add-ons and patterns...')
-        
+
+        # Service Types - for 'Service' orders
+        service_types_data = [
+            {'name': 'Oil Change', 'estimated_minutes': 30},
+            {'name': 'Brake Service', 'estimated_minutes': 45},
+            {'name': 'Tire Rotation', 'estimated_minutes': 30},
+            {'name': 'Engine Tune-up', 'estimated_minutes': 60},
+            {'name': 'Transmission Service', 'estimated_minutes': 90},
+            {'name': 'Battery Replacement', 'estimated_minutes': 20},
+            {'name': 'Air Filter Change', 'estimated_minutes': 15},
+            {'name': 'Wheel Alignment', 'estimated_minutes': 45},
+            {'name': 'Suspension Repair', 'estimated_minutes': 75},
+            {'name': 'Exhaust System Repair', 'estimated_minutes': 60},
+            {'name': 'Radiator Flush', 'estimated_minutes': 45},
+            {'name': 'AC Service', 'estimated_minutes': 60},
+            {'name': 'Spark Plug Replacement', 'estimated_minutes': 30},
+            {'name': 'Brake Pad Replacement', 'estimated_minutes': 25},
+            {'name': 'Coolant Replacement', 'estimated_minutes': 30},
+            {'name': 'Power Steering Fluid', 'estimated_minutes': 20},
+            {'name': 'General Maintenance', 'estimated_minutes': 50},
+        ]
+
+        created_count = 0
+        for service_data in service_types_data:
+            service_type, created = ServiceType.objects.get_or_create(
+                name=service_data['name'],
+                defaults={
+                    'estimated_minutes': service_data['estimated_minutes'],
+                    'is_active': True,
+                }
+            )
+            if created:
+                self.stdout.write(self.style.SUCCESS(f'  ✓ Created: {service_type.name} ({service_type.estimated_minutes} mins)'))
+                created_count += 1
+            else:
+                self.stdout.write(f'  → Already exists: {service_type.name}')
+
+        self.stdout.write(self.style.SUCCESS(f'\nService Types: {created_count} created'))
+
+        # Service Add-ons - for 'Sales' orders (e.g., tire installation, balancing)
+        service_addons_data = [
+            {'name': 'Wheel Balancing', 'estimated_minutes': 20},
+            {'name': 'Tire Installation', 'estimated_minutes': 30},
+            {'name': 'Wheel Mounting', 'estimated_minutes': 25},
+            {'name': 'Tire Repair', 'estimated_minutes': 15},
+            {'name': 'Alignment Check', 'estimated_minutes': 20},
+            {'name': 'Suspension Inspection', 'estimated_minutes': 30},
+            {'name': 'Brake Fluid Replacement', 'estimated_minutes': 20},
+            {'name': 'Engine Cleaning', 'estimated_minutes': 45},
+            {'name': 'Cabin Air Filter', 'estimated_minutes': 15},
+            {'name': 'Battery Testing', 'estimated_minutes': 10},
+            {'name': 'Headlight Restoration', 'estimated_minutes': 20},
+            {'name': 'Undercarriage Wash', 'estimated_minutes': 30},
+            {'name': 'Transmission Fluid Flush', 'estimated_minutes': 45},
+            {'name': 'Differential Service', 'estimated_minutes': 40},
+            {'name': 'Engine Oil Top-up', 'estimated_minutes': 5},
+            {'name': 'Windshield Treatment', 'estimated_minutes': 15},
+        ]
+
+        created_count = 0
+        for addon_data in service_addons_data:
+            addon, created = ServiceAddon.objects.get_or_create(
+                name=addon_data['name'],
+                defaults={
+                    'estimated_minutes': addon_data['estimated_minutes'],
+                    'is_active': True,
+                }
+            )
+            if created:
+                self.stdout.write(self.style.SUCCESS(f'  ✓ Created: {addon.name} ({addon.estimated_minutes} mins)'))
+                created_count += 1
+            else:
+                self.stdout.write(f'  → Already exists: {addon.name}')
+
+        self.stdout.write(self.style.SUCCESS(f'\nService Add-ons: {created_count} created'))
+
         # Common service templates for car service
         service_templates = [
             {
