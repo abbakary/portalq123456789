@@ -643,6 +643,12 @@ def api_update_order_from_extraction(request):
         priority = request.POST.get('extracted_priority', 'medium').strip()
         services = request.POST.get('extracted_services', '').strip()
 
+        # Additional order details for sales/service orders
+        item_name = request.POST.get('extracted_item_name', '').strip()
+        brand = request.POST.get('extracted_brand', '').strip()
+        quantity = request.POST.get('extracted_quantity', '').strip()
+        tire_type = request.POST.get('extracted_tire_type', 'New').strip()
+
         plate_number = request.POST.get('extracted_plate', '').strip().upper()
         vehicle_make = request.POST.get('extracted_make', '').strip()
         vehicle_model = request.POST.get('extracted_model', '').strip()
@@ -726,19 +732,48 @@ def api_update_order_from_extraction(request):
             except (ValueError, TypeError):
                 est_duration = None
 
-            # Build description with services if provided
+            # Build description with services/items if provided
             final_description = description or ''
+            final_est_duration = est_duration
+
             if services:
                 service_list = [s.strip() for s in services.split(',') if s.strip()]
                 if service_list:
                     services_text = f"Services: {', '.join(service_list)}"
                     final_description = f"{final_description}\n{services_text}" if final_description else services_text
 
+                    # Calculate estimated duration from service types if available
+                    try:
+                        service_types = ServiceType.objects.filter(name__in=service_list, is_active=True)
+                        total_minutes = sum(int(s.estimated_minutes or 0) for s in service_types)
+                        if total_minutes > 0:
+                            final_est_duration = total_minutes
+                    except Exception:
+                        pass
+
+            # Add item details if this is a sales/mixed order
+            if item_name:
+                item_desc = f"Item: {item_name}"
+                if brand:
+                    item_desc += f" ({brand})"
+                if quantity:
+                    item_desc += f" - Qty: {quantity}"
+                if tire_type and tire_type != 'New':
+                    item_desc += f" - Type: {tire_type}"
+
+                final_description = f"{final_description}\n{item_desc}" if final_description else item_desc
+
+                # Update order with sales/item information
+                order.item_name = item_name
+                order.brand = brand or None
+                order.quantity = quantity or None
+                order.tire_type = tire_type or 'New'
+
             # Update order fields
             order.description = final_description
             order.priority = priority if priority in ['low', 'medium', 'high', 'urgent'] else 'medium'
-            if est_duration:
-                order.estimated_duration = est_duration
+            if final_est_duration:
+                order.estimated_duration = final_est_duration
 
             order.save()
 
@@ -780,11 +815,32 @@ def api_update_order_from_extraction(request):
                                 order.description = (order.description or '') + component_desc
                                 order.save()
 
+        # Build detailed success message with what was updated
+        updates = [f"Order #{order.order_number} updated successfully"]
+
+        if customer_name:
+            updates.append(f"Customer: {customer_name}")
+        if plate_number:
+            updates.append(f"Vehicle: {plate_number}")
+        if services:
+            service_list = [s.strip() for s in services.split(',') if s.strip()]
+            updates.append(f"Services: {', '.join(service_list)}")
+        if item_name:
+            item_info = item_name
+            if brand:
+                item_info += f" ({brand})"
+            if quantity:
+                item_info += f" × {quantity}"
+            updates.append(f"Item: {item_info}")
+        if final_est_duration:
+            updates.append(f"Est. Duration: {final_est_duration} minutes")
+
         return JsonResponse({
             'success': True,
-            'message': 'Order updated successfully',
+            'message': ' • '.join(updates),
             'order_id': order.id,
-            'order_number': order.order_number
+            'order_number': order.order_number,
+            'updates': updates
         }, status=200)
 
     except Exception as e:
@@ -929,6 +985,7 @@ def api_create_order_from_modal(request):
 
         with transaction.atomic():
             from .services import VehicleService
+            from decimal import Decimal
 
             # Create or get vehicle if plate is provided
             vehicle = None
@@ -946,20 +1003,137 @@ def api_create_order_from_modal(request):
             except (ValueError, TypeError):
                 est_duration = None
 
+            # Build final description with service/sales details and calculate estimated duration
+            final_description = description or ""
+            final_est_duration = est_duration
+
+            # Handle service orders - process service selections
+            if order_type == 'service':
+                service_selection = request.POST.getlist('service_selection')
+                if service_selection:
+                    desc_services = "Selected services: " + ", ".join(service_selection)
+                    if final_description:
+                        final_description = final_description + "\n" + desc_services
+                    else:
+                        final_description = desc_services
+
+                    # Calculate estimated duration from service types
+                    try:
+                        service_types = ServiceType.objects.filter(name__in=service_selection, is_active=True)
+                        total_minutes = sum(int(s.estimated_minutes or 0) for s in service_types)
+                        final_est_duration = total_minutes or est_duration or 50
+                    except Exception:
+                        pass
+
+            # Handle sales orders - process item and tire service details
+            elif order_type == 'sales':
+                item_name = request.POST.get('item_name', '').strip()
+                brand = request.POST.get('brand', '').strip()
+                quantity = request.POST.get('quantity', '').strip()
+                tire_type = request.POST.get('tire_type', 'New').strip()
+
+                # Build sales order description with item details
+                if item_name:
+                    sales_desc = f"Item: {item_name}"
+                    if brand:
+                        sales_desc += f" ({brand})"
+                    if quantity:
+                        sales_desc += f" - Qty: {quantity}"
+                    if tire_type and tire_type != 'New':
+                        sales_desc += f" - Type: {tire_type}"
+
+                    if final_description:
+                        final_description = final_description + "\n" + sales_desc
+                    else:
+                        final_description = sales_desc
+
+                # Process tire services (add-ons)
+                tire_services = request.POST.getlist('tire_services')
+                if tire_services:
+                    desc_services = "Tire services: " + ", ".join(tire_services)
+                    if final_description:
+                        final_description = final_description + "\n" + desc_services
+                    else:
+                        final_description = desc_services
+
+                    # Calculate estimated duration from tire services
+                    try:
+                        addons = ServiceAddon.objects.filter(name__in=tire_services, is_active=True)
+                        addon_minutes = sum(int(a.estimated_minutes or 0) for a in addons)
+                        current_duration = final_est_duration or 0
+                        final_est_duration = current_duration + addon_minutes if addon_minutes > 0 else current_duration
+                    except Exception:
+                        pass
+
+            # Handle inquiry orders - process inquiry details
+            elif order_type == 'inquiry':
+                inquiry_type = request.POST.get('inquiry_type', '').strip()
+                questions = request.POST.get('questions', '').strip()
+                contact_preference = request.POST.get('contact_preference', '').strip()
+                follow_up_date = request.POST.get('follow_up_date', '').strip()
+
+                inquiry_desc = f"Inquiry Type: {inquiry_type}" if inquiry_type else "Customer Inquiry"
+                if questions:
+                    inquiry_desc += f"\nQuestions: {questions}"
+                if contact_preference:
+                    inquiry_desc += f"\nContact Preference: {contact_preference}"
+
+                if final_description:
+                    final_description = final_description + "\n" + inquiry_desc
+                else:
+                    final_description = inquiry_desc
+
+            # Set final description if empty
+            if not final_description:
+                final_description = f"{order_type.title()} Order"
+
             # Create order using OrderService to ensure proper visit tracking
-            order = OrderService.create_order(
-                customer=customer,
-                order_type=order_type,
-                branch=user_branch,
-                vehicle=vehicle,
-                description=description or f"Order for {customer.full_name}",
-                priority=priority if priority in ['low', 'medium', 'high', 'urgent'] else 'medium',
-                estimated_duration=est_duration,
-            )
+            order_kwargs = {
+                'customer': customer,
+                'order_type': order_type,
+                'branch': user_branch,
+                'vehicle': vehicle,
+                'description': final_description,
+                'priority': priority if priority in ['low', 'medium', 'high', 'urgent'] else 'medium',
+                'estimated_duration': final_est_duration,
+            }
+
+            # Add type-specific fields for service creation
+            if order_type == 'sales':
+                order_kwargs['item_name'] = request.POST.get('item_name', '').strip() or None
+                order_kwargs['brand'] = request.POST.get('brand', '').strip() or None
+                order_kwargs['quantity'] = request.POST.get('quantity', '').strip() or None
+                order_kwargs['tire_type'] = request.POST.get('tire_type', 'New').strip()
+
+            elif order_type == 'inquiry':
+                order_kwargs['inquiry_type'] = request.POST.get('inquiry_type', '').strip() or None
+                order_kwargs['questions'] = request.POST.get('questions', '').strip() or None
+                order_kwargs['contact_preference'] = request.POST.get('contact_preference', '').strip() or None
+                order_kwargs['follow_up_date'] = request.POST.get('follow_up_date', '').strip() or None
+
+            order = OrderService.create_order(**order_kwargs)
+
+            # For sales orders, adjust inventory
+            if order_type == 'sales':
+                try:
+                    item_name = order_kwargs.get('item_name')
+                    brand = order_kwargs.get('brand')
+                    quantity = order_kwargs.get('quantity')
+
+                    if item_name and brand and quantity:
+                        qty_int = int(quantity) if isinstance(quantity, (str, int)) and str(quantity).isdigit() else 0
+                        if qty_int > 0:
+                            from .utils import adjust_inventory
+                            ok, _, remaining = adjust_inventory(item_name, brand, -qty_int)
+                            if ok:
+                                logger.info(f"Inventory adjusted for order {order.id}: {item_name} ({brand}) -{qty_int}, remaining: {remaining}")
+                            else:
+                                logger.warning(f"Failed to adjust inventory for order {order.id}: {item_name} ({brand})")
+                except Exception as e:
+                    logger.warning(f"Failed to adjust inventory for sales order {order.id}: {e}")
 
             # For upload type, create an invoice with extracted data
             if order_type == 'upload':
-                from decimal import Decimal
                 try:
                     subtotal_val = Decimal(str(subtotal or '0').replace(',', ''))
                     tax_val = Decimal(str(tax_amount or '0').replace(',', ''))
@@ -982,7 +1156,6 @@ def api_create_order_from_modal(request):
 
                     # If description contains item details, create line items
                     if description:
-                        from .models import InvoiceLineItem
                         lines = description.split('\n')
                         for line in lines:
                             if line.strip():
@@ -996,12 +1169,39 @@ def api_create_order_from_modal(request):
                 except Exception as e:
                     logger.warning(f"Failed to create invoice from upload: {e}")
 
+        # Build detailed success message with order summary
+        summary_parts = [f"Order #{order.order_number} created successfully"]
+
+        if order_type == 'service':
+            service_list = request.POST.getlist('service_selection')
+            if service_list:
+                summary_parts.append(f"Services: {', '.join(service_list)}")
+            if final_est_duration:
+                summary_parts.append(f"Est. Duration: {final_est_duration} minutes")
+        elif order_type == 'sales':
+            if request.POST.get('item_name'):
+                item_info = request.POST.get('item_name')
+                if request.POST.get('brand'):
+                    item_info += f" ({request.POST.get('brand')})"
+                if request.POST.get('quantity'):
+                    item_info += f" × {request.POST.get('quantity')}"
+                summary_parts.append(f"Item: {item_info}")
+            if final_est_duration:
+                summary_parts.append(f"Est. Duration: {final_est_duration} minutes")
+        elif order_type == 'inquiry':
+            if request.POST.get('inquiry_type'):
+                summary_parts.append(f"Inquiry Type: {request.POST.get('inquiry_type')}")
+            if request.POST.get('contact_preference'):
+                summary_parts.append(f"Contact: {request.POST.get('contact_preference')}")
+
         # Return success response
         return JsonResponse({
             'success': True,
-            'message': 'Order created successfully',
+            'message': ' • '.join(summary_parts),
             'order_id': order.id,
             'order_number': order.order_number,
+            'order_type': order_type,
+            'summary': summary_parts,
             'redirect_url': f'/tracker/orders/started/{order.id}/'
         }, status=201)
 

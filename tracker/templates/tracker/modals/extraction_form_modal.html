@@ -259,6 +259,30 @@
               </div>
               {% endif %}
 
+              <!-- Sales Item Details (For Sales Orders) -->
+              {% if order.type == 'sales' %}
+              <hr class="my-3">
+              <h6 class="fw-semibold mb-3"><i class="fa fa-shopping-cart me-2 text-success"></i>Sales Item Details</h6>
+              <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                  <label class="form-label fw-medium">Item Name</label>
+                  <input type="text" name="extracted_item_name" class="form-control" placeholder="e.g., Tire, Oil filter" value="{{ order.item_name|default:'' }}">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label fw-medium">Brand</label>
+                  <input type="text" name="extracted_brand" class="form-control" placeholder="e.g., Michelin, Mobil" value="{{ order.brand|default:'' }}">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label fw-medium">Quantity</label>
+                  <input type="number" name="extracted_quantity" class="form-control" min="1" placeholder="1" value="{{ order.quantity|default:'' }}">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label fw-medium">Tire Type</label>
+                  <input type="text" name="extracted_tire_type" class="form-control" placeholder="e.g., New, Recapped, Used" value="{{ order.tire_type|default:'New' }}">
+                </div>
+              </div>
+              {% endif %}
+
               <!-- Order Details -->
               <hr class="my-3">
               <div class="row g-3 mb-3">

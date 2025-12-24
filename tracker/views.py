@@ -25,7 +25,8 @@ from django.contrib.auth.models import User, Group
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from django.core.exceptions import ValidationError
-from .models import Profile, Customer, Order, Vehicle, InventoryItem, CustomerNote, Brand, Branch, OrderAttachment, OrderAttachmentSignature, ServiceType, ServiceAddon, InquiryNote
+from django.db.models.deletion import ProtectedError
+from .models import Profile, Customer, Order, Vehicle, InventoryItem, CustomerNote, Brand, Branch, OrderAttachment, OrderAttachmentSignature, ServiceType, ServiceAddon, InquiryNote, Invoice
 from django.core.paginator import Paginator
 from .utils import add_audit_log, get_audit_logs, clear_audit_logs, scope_queryset, get_user_branch
 from .services import OrderService
@@ -3235,29 +3236,40 @@ def order_delete(request: HttpRequest, pk: int):
     """Delete an order"""
     order = get_object_or_404(Order, pk=pk)
     customer = order.customer
-    
+
     if request.method == 'POST':
+        order_number = order.order_number
+
         try:
-            # Log the deletion before actually deleting
-            add_audit_log(
-                request.user,
-                'order_deleted',
-                f'Deleted order {order.order_number} for customer {customer.full_name}',
-                order_id=order.id,
-                customer_id=customer.id
-            )
-        except Exception:
-            pass
-            
-        order.delete()
-        messages.success(request, f'Order {order.order_number} has been deleted.')
-        
-        # Redirect based on the 'next' parameter or to customer detail
-        next_url = request.POST.get('next', None)
-        if next_url:
-            return redirect(next_url)
-        return redirect('tracker:customer_detail', pk=customer.id)
-    
+            # Attempt to delete the order
+            order.delete()
+
+            # Log the deletion after successful deletion
+            try:
+                add_audit_log(
+                    request.user,
+                    'order_deleted',
+                    f'Deleted order {order_number} for customer {customer.full_name}',
+                    order_id=order.id,
+                    customer_id=customer.id
+                )
+            except Exception:
+                pass
+
+            messages.success(request, f'Order {order_number} has been successfully deleted.')
+
+            # Redirect based on the 'next' parameter or to customer detail
+            next_url = request.POST.get('next', None)
+            if next_url:
+                return redirect(next_url)
+            return redirect('tracker:customer_detail', pk=customer.id)
+
+        except ProtectedError:
+            # Handle foreign key constraint violations
+            error_msg = f'Cannot delete order "{order_number}" because it is referenced by other records. Please contact your system administrator.'
+            messages.error(request, error_msg)
+            return redirect('tracker:order_detail', pk=order.id)
+
     # If not a POST request, redirect to order detail
     return redirect('tracker:order_detail', pk=order.id)
 
@@ -4802,22 +4814,55 @@ def customer_delete(request: HttpRequest, pk: int):
     customer = get_object_or_404(customers_qs_del, pk=pk)
 
     if request.method == 'POST':
-        # Log the deletion before actually deleting
+        customer_name = customer.full_name
+
         try:
-            add_audit_log(
-                request.user,
-                'customer_deleted',
-                f'Deleted customer {customer.full_name} (ID: {customer.id})',
-                customer_id=customer.id
-            )
-        except Exception:
-            pass
-        
-        # Delete the customer (this will cascade to related objects)
-        customer.delete()
-        messages.success(request, f'Customer {customer.full_name} has been deleted.')
-        return redirect('tracker:customers_list')
-    
+            # Attempt to delete the customer
+            customer.delete()
+
+            # Log the deletion after successful deletion
+            try:
+                add_audit_log(
+                    request.user,
+                    'customer_deleted',
+                    f'Deleted customer {customer_name} (ID: {customer.id})',
+                    customer_id=customer.id
+                )
+            except Exception:
+                pass
+
+            messages.success(request, f'Customer {customer_name} has been successfully deleted.')
+            return redirect('tracker:customers_list')
+
+        except ProtectedError as e:
+            # Handle foreign key constraint violations
+            # Determine what's preventing deletion
+            related_objects = []
+
+            # Check for invoices (most common constraint)
+            invoice_count = customer.invoices.count()
+            if invoice_count > 0:
+                related_objects.append(f'{invoice_count} invoice{"s" if invoice_count > 1 else ""}')
+
+            # Check for orders (typically cascade, but included for clarity)
+            order_count = customer.orders.count()
+            if order_count > 0:
+                related_objects.append(f'{order_count} order{"s" if order_count > 1 else ""}')
+
+            # Check for vehicles (typically cascade, but included for clarity)
+            vehicle_count = customer.vehicles.count()
+            if vehicle_count > 0:
+                related_objects.append(f'{vehicle_count} vehicle{"s" if vehicle_count > 1 else ""}')
+
+            # Build error message
+            if related_objects:
+                error_msg = f'Cannot delete customer "{customer_name}" because they have associated data: {", ".join(related_objects)}. Please remove or reassign these records first.'
+            else:
+                error_msg = f'Cannot delete customer "{customer_name}" due to existing references. Please contact your system administrator.'
+
+            messages.error(request, error_msg)
+            return redirect('tracker:customer_detail', pk=customer.id)
+
     # If not a POST request, redirect to customer detail
     return redirect('tracker:customer_detail', pk=customer.id)
 
@@ -4849,12 +4894,21 @@ def vehicle_delete(request: HttpRequest, pk: int):
     """Delete a vehicle"""
     vehicle = get_object_or_404(Vehicle, pk=pk)
     customer_id = vehicle.customer_id
-    
+    vehicle_identifier = f"{vehicle.make} {vehicle.model}".strip() or f"Vehicle #{vehicle.plate_number}"
+
     if request.method == 'POST':
-        vehicle.delete()
-        messages.success(request, 'Vehicle deleted successfully.')
-        return redirect('tracker:customer_detail', pk=customer_id)
-    
+        try:
+            # Attempt to delete the vehicle
+            vehicle.delete()
+            messages.success(request, f'{vehicle_identifier} has been successfully deleted.')
+            return redirect('tracker:customer_detail', pk=customer_id)
+
+        except ProtectedError:
+            # Handle foreign key constraint violations
+            error_msg = f'Cannot delete {vehicle_identifier} because it is referenced by other records. Please contact your system administrator.'
+            messages.error(request, error_msg)
+            return redirect('tracker:customer_detail', pk=customer_id)
+
     return render(request, 'tracker/confirm_delete.html', {
         'object': vehicle,
         'cancel_url': reverse('tracker:customer_detail', kwargs={'pk': customer_id}),

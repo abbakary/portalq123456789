@@ -1086,11 +1086,22 @@ def api_create_invoice_from_upload(request):
             
             # Update started order with invoice data
             try:
+                # Build order description from invoice line items
+                order_description = order.description or ""
+
+                # Append line item descriptions if they exist
+                line_items = InvoiceLineItem.objects.filter(invoice=inv)
+                if line_items.exists():
+                    line_descriptions = [item.description for item in line_items if item.description]
+                    if line_descriptions:
+                        items_text = "Invoice Items:\n" + "\n".join(line_descriptions)
+                        order_description = f"{order_description}\n\n{items_text}" if order_description else items_text
+
                 order = OrderService.update_order_from_invoice(
                     order=order,
                     customer=customer_obj,
                     vehicle=vehicle,
-                    description=order.description
+                    description=order_description
                 )
             except Exception as e:
                 logger.warning(f"Failed to update order from invoice: {e}")
@@ -1173,15 +1184,36 @@ def api_create_invoice_from_upload(request):
             # Redirect to orders list after successful invoice creation
             redirect_url = '/tracker/orders/'
 
+            # Build detailed success message
+            summary_parts = [f"Invoice #{inv.invoice_number} created"]
+
+            if not created and customer_obj:
+                summary_parts.append(f"Customer: {customer_obj.full_name} (existing)")
+            elif created and customer_obj:
+                summary_parts.append(f"Customer: {customer_obj.full_name} (new)")
+
+            if vehicle and vehicle.plate_number:
+                summary_parts.append(f"Vehicle: {vehicle.plate_number}")
+
+            if inv.subtotal or inv.tax_amount or inv.total_amount:
+                summary_parts.append(f"Amount: {inv.total_amount} (Net: {inv.subtotal})")
+
+            line_item_count = InvoiceLineItem.objects.filter(invoice=inv).count()
+            if line_item_count > 0:
+                summary_parts.append(f"Items: {line_item_count}")
+
             # Response - redirect to appropriate order detail page
             return JsonResponse({
                 'success': True,
-                'message': 'Invoice created and order updated successfully',
+                'message': ' • '.join(summary_parts),
                 'invoice_id': inv.id,
                 'invoice_number': inv.invoice_number,
                 'order_id': order.id,
+                'order_number': order.order_number,
                 'customer_id': customer_obj.id,
+                'customer_name': customer_obj.full_name,
                 'customer_found': not created,
+                'summary': summary_parts,
                 'redirect_url': redirect_url
             })
     

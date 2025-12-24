@@ -47,6 +47,13 @@
                         {% if form.service_selection.errors %}
                         <div class="text-danger f-12 mt-2">{{ form.service_selection.errors|striptags }}</div>
                         {% endif %}
+                        {% if service_types %}
+                        <div class="alert alert-info mt-3 mb-0">
+                            <small><i class="fa fa-info-circle me-2"></i>
+                                <strong>Estimated Duration:</strong> Will be automatically calculated based on selected services. Each service adds its time estimate to the total.
+                            </small>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -136,10 +143,17 @@
                         {% if form.tire_services.errors %}
                         <div class="text-danger f-12 mt-2">{{ form.tire_services.errors|striptags }}</div>
                         {% endif %}
+                        {% if sales_addons %}
+                        <div class="alert alert-info mt-3 mb-0">
+                            <small><i class="fa fa-info-circle me-2"></i>
+                                <strong>Estimated Duration:</strong> Each selected service add-on will add its time estimate to the total duration for this order.
+                            </small>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
-            
+
             {% if not registration_summary_only %}
             <div class="col-12">
                 <label class="form-label">{{ form.description.label }}</label>
