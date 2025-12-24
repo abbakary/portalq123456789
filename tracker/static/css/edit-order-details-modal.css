@@ -1,5 +1,5 @@
 /* ============================================
-   Edit Order Modal - Improved Styles
+   Edit Order Details Modal - Standalone Styles
    ============================================ */
 
 /* Modal Container */
@@ -85,7 +85,10 @@
   justify-content: flex-end;
 }
 
-/* Form Elements */
+/* ============================================
+   Form Elements
+   ============================================ */
+
 #editOrderDetailsModal .form-label {
   margin-bottom: 0.5rem;
   font-weight: 500;
@@ -107,7 +110,10 @@
   box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
 }
 
-/* Alert styles */
+/* ============================================
+   Alert and Info Messages
+   ============================================ */
+
 #editOrderDetailsModal .alert-info {
   background-color: #cfe2ff;
   border: 1px solid #b6d4fe;
@@ -118,7 +124,10 @@
   margin-bottom: 0;
 }
 
-/* Card styles */
+/* ============================================
+   Card Styles
+   ============================================ */
+
 #editOrderDetailsModal .card {
   border: 1px solid #dee2e6;
   border-radius: 6px;
@@ -139,7 +148,10 @@
   background: #f8f9fa;
 }
 
-/* Tabs */
+/* ============================================
+   Tabs
+   ============================================ */
+
 #editOrderDetailsModal .nav-tabs {
   border-bottom: 2px solid #dee2e6;
   margin-bottom: 1rem;
@@ -182,7 +194,10 @@
   padding: 0;
 }
 
-/* Services container - FIXED: Display content naturally */
+/* ============================================
+   Labour Codes and Services Grid
+   ============================================ */
+
 #editOrderDetailsModal #editServicesContainer {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -191,7 +206,10 @@
   overflow-y: visible;
 }
 
-/* Labour code and service cards */
+/* ============================================
+   Labour Code and Service Cards
+   ============================================ */
+
 #editOrderDetailsModal .labour-code-card,
 #editOrderDetailsModal .service-card {
   position: relative;
@@ -227,7 +245,7 @@
   margin-bottom: 0.5rem;
 }
 
-/* Visible check icon */
+/* Visible check icon for selected cards */
 #editOrderDetailsModal .labour-code-card i.fa-check-circle,
 #editOrderDetailsModal .service-card i.fa-check-circle {
   position: absolute;
@@ -244,7 +262,10 @@
   opacity: 1;
 }
 
-/* FIXED: Hidden checkboxes without breaking layout */
+/* ============================================
+   Hidden Checkboxes (accessible to screen readers)
+   ============================================ */
+
 #editOrderDetailsModal .form-check-input,
 #editOrderDetailsModal .edit-labour-code-checkbox,
 #editOrderDetailsModal .edit-service-checkbox {
@@ -258,7 +279,10 @@
   z-index: -1;
 }
 
-/* Buttons */
+/* ============================================
+   Buttons
+   ============================================ */
+
 #editOrderDetailsModal .btn {
   border-radius: 4px;
   padding: 0.5rem 1rem;
@@ -288,7 +312,10 @@
   border-color: #565e64;
 }
 
-/* Modal backdrop */
+/* ============================================
+   Modal Backdrop
+   ============================================ */
+
 #editOrderDetailsModal + .modal-backdrop {
   opacity: 0.3 !important;
   background-color: #000 !important;
@@ -341,7 +368,10 @@
   pointer-events: auto !important;
 }
 
-/* Responsive adjustments */
+/* ============================================
+   Responsive Design
+   ============================================ */
+
 @media (max-width: 768px) {
   #editOrderDetailsModal .modal-dialog {
     margin: 0.5rem auto !important;
@@ -376,7 +406,10 @@
   }
 }
 
-/* Modal entrance animation */
+/* ============================================
+   Modal Entrance Animation
+   ============================================ */
+
 @keyframes modalSlideIn {
   from {
     opacity: 0;
@@ -392,7 +425,10 @@
   animation: modalSlideIn 0.3s ease-out;
 }
 
-/* Print styles */
+/* ============================================
+   Print Styles
+   ============================================ */
+
 @media print {
   #editOrderDetailsModal {
     display: none !important;
