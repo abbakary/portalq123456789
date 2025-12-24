@@ -550,7 +550,20 @@ def dashboard(request: HttpRequest):
                 today_vat = Decimal(str(today_gross_sums.get('today_vat_sum')))
 
             # Revenue by branch (Gross Value)
-            branch_sums = invoices_qs.values('branch__name').annotate(
+            # Logic:
+            # - If user is superuser/admin with NO assigned branch (main branch admin): show ALL branches
+            # - If user has an assigned branch (normal user or branch-scoped admin): show ONLY their branch
+
+            user_is_main_branch_admin = getattr(request.user, 'is_superuser', False) and _branch is None
+
+            if user_is_main_branch_admin:
+                # Main branch admin/superuser - show all branches
+                all_invoices = Invoice.objects.all()
+            else:
+                # Branch-scoped user - show only their branch invoices
+                all_invoices = invoices_qs
+
+            branch_sums = all_invoices.values('branch__name').annotate(
                 total=Sum('total_amount')
             ).order_by('branch__name')
 
