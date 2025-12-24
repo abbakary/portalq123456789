@@ -596,6 +596,8 @@ class OrderForm(forms.ModelForm):
         )
 
     def clean(self):
+        from .models import LabourCode
+
         cleaned = super().clean()
         t = cleaned.get("type")
 
@@ -604,27 +606,43 @@ class OrderForm(forms.ModelForm):
             if not item_id:
                 self.add_error("item_name", "Item selection is required for Sales orders")
             else:
-                # Get item details and set brand
+                # Priority 1: Try to resolve from inventory item
+                item_updated = False
                 try:
                     item = InventoryItem.objects.select_related('brand').get(id=item_id)
                     cleaned["item_name"] = item.name
                     cleaned["brand"] = item.brand.name if item.brand else "Unbranded"
+                    item_updated = True
                 except InventoryItem.DoesNotExist:
-                    self.add_error("item_name", "Selected item not found")
+                    # Priority 2: Try to resolve as labour code ID
+                    try:
+                        labour_code = LabourCode.objects.get(id=item_id, is_active=True)
+                        if labour_code.item_name:
+                            cleaned["item_name"] = labour_code.item_name
+                            cleaned["brand"] = labour_code.brand or "Unbranded"
+                            if labour_code.quantity:
+                                cleaned["quantity"] = labour_code.quantity
+                            if labour_code.tire_type:
+                                cleaned["tire_type"] = labour_code.tire_type
+                            item_updated = True
+                    except LabourCode.DoesNotExist:
+                        self.add_error("item_name", "Selected item not found")
                 except Exception as e:
                     # Handle case where item exists but brand is missing
                     try:
                         item = InventoryItem.objects.get(id=item_id)
                         cleaned["item_name"] = item.name
                         cleaned["brand"] = "Unbranded"
+                        item_updated = True
                     except InventoryItem.DoesNotExist:
                         self.add_error("item_name", "Selected item not found")
 
             q = cleaned.get("quantity")
             if not q or q < 1:
                 self.add_error("quantity", "Quantity must be at least 1")
-            # Always set tire_type to New (hidden field)
-            cleaned["tire_type"] = "New"
+            # Always set tire_type to New (hidden field) if not already set by labour code
+            if not cleaned.get("tire_type"):
+                cleaned["tire_type"] = "New"
 
         elif t == "service":
             services = cleaned.get("service_selection") or []
@@ -1337,7 +1355,7 @@ class InvoicePaymentForm(forms.ModelForm):
 class LabourCodeForm(forms.ModelForm):
     class Meta:
         model = LabourCode
-        fields = ['code', 'description', 'category', 'is_active']
+        fields = ['code', 'description', 'category', 'item_name', 'brand', 'quantity', 'tire_type', 'is_active']
         widgets = {
             'code': forms.TextInput(attrs={
                 'class': 'form-control',
@@ -1349,10 +1367,36 @@ class LabourCodeForm(forms.ModelForm):
                 'placeholder': 'Enter description (e.g., OIL SERVICE)',
                 'required': True
             }),
-            'category': forms.TextInput(attrs={
+            'category': forms.Select(attrs={
+                'class': 'form-select',
+            }, choices=[
+                ('', 'Select category'),
+                ('labour', 'Labour'),
+                ('service', 'Service'),
+                ('tyre service', 'Tyre Service'),
+                ('sales', 'Sales'),
+                ('unspecified', 'Unspecified'),
+            ]),
+            'item_name': forms.TextInput(attrs={
                 'class': 'form-control',
-                'placeholder': 'Enter category (labour, service, tyre service, sales, or unspecified)',
-                'required': True
+                'placeholder': 'Item name (e.g., Tire, Oil Filter) - optional',
+                'required': False
+            }),
+            'brand': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Brand name (e.g., Michelin) - optional',
+                'required': False
+            }),
+            'quantity': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Default quantity - optional',
+                'min': 1,
+                'required': False
+            }),
+            'tire_type': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Tire type (e.g., New, Used) - optional',
+                'required': False
             }),
             'is_active': forms.CheckboxInput(attrs={
                 'class': 'form-check-input',

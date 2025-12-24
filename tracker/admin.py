@@ -263,8 +263,8 @@ class InventoryItemAdmin(admin.ModelAdmin):
 
 @admin.register(LabourCode)
 class LabourCodeAdmin(admin.ModelAdmin):
-    list_display = ("code", "description", "category", "is_active", "created_at", "updated_at")
-    search_fields = ("code", "description", "category")
+    list_display = ("code", "description", "item_name", "brand", "category", "is_active", "created_at", "updated_at")
+    search_fields = ("code", "description", "item_name", "brand", "category")
     list_filter = ("category", "is_active", "created_at")
     readonly_fields = ("created_at", "updated_at")
 
@@ -272,6 +272,11 @@ class LabourCodeAdmin(admin.ModelAdmin):
         ('Labour Code Information', {
             'fields': ('code', 'description', 'category', 'is_active'),
             'classes': ('wide', 'extrapretty'),
+        }),
+        ('Item Details (for order updates)', {
+            'fields': ('item_name', 'brand', 'quantity', 'tire_type'),
+            'classes': ('wide', 'extrapretty'),
+            'description': 'These fields are used when updating orders with labour code data. Leave blank if not applicable.',
         }),
         ('Timestamps', {
             'fields': ('created_at', 'updated_at'),

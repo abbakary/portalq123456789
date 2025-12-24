@@ -431,12 +431,20 @@ def started_order_detail(request, order_id):
 
         elif action == 'update_order_details':
             # Update selected services, add-ons, items, estimated duration, and order type
+            # Now supports labour code lookup for item data
             try:
+                from .models import LabourCode, InventoryItem
+
                 services = request.POST.getlist('services') or []
                 est = request.POST.get('estimated_duration') or None
                 item_id = request.POST.get('item_id') or None
                 item_quantity = request.POST.get('item_quantity') or None
                 new_order_type = request.POST.get('order_type') or None
+
+                # Labour code data (can be provided directly or from manual entry)
+                labour_code_id = request.POST.get('labour_code_id') or None
+                item_name_manual = request.POST.get('item_name_manual') or None
+                item_brand_manual = request.POST.get('item_brand_manual') or None
 
                 # Handle order type change
                 if new_order_type and new_order_type != order.type:
@@ -451,22 +459,57 @@ def started_order_detail(request, order_id):
                     order.description = ''
                     logger.info(f"Order {order.id} type changed from {old_type} to {new_order_type}")
 
-                # Handle item/brand update for sales orders
-                if order.type == 'sales' and item_id:
-                    try:
-                        from .models import InventoryItem
-                        item = InventoryItem.objects.select_related('brand').get(id=int(item_id))
-                        order.item_name = item.name
-                        order.brand = item.brand.name if item.brand else 'Unbranded'
+                # Handle item/brand update for sales and service orders
+                if order.type in ['sales', 'service', 'labour']:
+                    item_updated = False
+
+                    # Priority 1: Use labour code data if labour_code_id is provided
+                    if labour_code_id:
+                        try:
+                            labour_code = LabourCode.objects.get(id=int(labour_code_id), is_active=True)
+                            if labour_code.item_name:
+                                order.item_name = labour_code.item_name
+                                order.brand = labour_code.brand or 'Unbranded'
+                                if labour_code.quantity:
+                                    order.quantity = labour_code.quantity
+                                if labour_code.tire_type:
+                                    order.tire_type = labour_code.tire_type
+                                item_updated = True
+                                logger.info(f"Order {order.id} updated with labour code {labour_code.code}")
+                        except LabourCode.DoesNotExist:
+                            logger.warning(f"Labour code {labour_code_id} not found when updating order {order.id}")
+                        except Exception as e:
+                            logger.error(f"Error updating with labour code {labour_code_id}: {e}")
+
+                    # Priority 2: Use manual entry (item_name_manual and item_brand_manual)
+                    if not item_updated and item_name_manual:
+                        order.item_name = item_name_manual
+                        order.brand = item_brand_manual or 'Unbranded'
                         if item_quantity:
                             try:
                                 order.quantity = int(item_quantity)
                             except (ValueError, TypeError):
                                 pass
-                    except InventoryItem.DoesNotExist:
-                        logger.warning(f"Inventory item {item_id} not found when updating order {order.id}")
-                    except Exception as e:
-                        logger.error(f"Error updating item for order {order.id}: {e}")
+                        item_updated = True
+                        logger.info(f"Order {order.id} updated with manual item data")
+
+                    # Priority 3: Use inventory item if item_id is provided
+                    if not item_updated and item_id:
+                        try:
+                            item = InventoryItem.objects.select_related('brand').get(id=int(item_id))
+                            order.item_name = item.name
+                            order.brand = item.brand.name if item.brand else 'Unbranded'
+                            if item_quantity:
+                                try:
+                                    order.quantity = int(item_quantity)
+                                except (ValueError, TypeError):
+                                    pass
+                            item_updated = True
+                            logger.info(f"Order {order.id} updated with inventory item {item_id}")
+                        except InventoryItem.DoesNotExist:
+                            logger.warning(f"Inventory item {item_id} not found when updating order {order.id}")
+                        except Exception as e:
+                            logger.error(f"Error updating item for order {order.id}: {e}")
 
                 # Handle services/add-ons update
                 if services:
@@ -1340,3 +1383,79 @@ def api_quick_stop_order(request):
     except Exception as e:
         logger.error(f"Error quick-stopping order: {e}")
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_http_methods(["GET"])
+def api_lookup_labour_code(request):
+    """
+    API endpoint to lookup labour code data by item name or code.
+    Query parameters:
+      - item_name: Search by item name (iexact match)
+      - code: Search by labour code (iexact match)
+      - category: Optional category filter (labour, service, tyre service, sales, unspecified)
+
+    Returns:
+      {
+        'success': True,
+        'labour_codes': [
+          {
+            'id': id,
+            'code': code,
+            'description': description,
+            'item_name': item_name,
+            'brand': brand,
+            'quantity': quantity,
+            'tire_type': tire_type,
+            'category': category
+          }
+        ]
+      }
+    """
+    from .models import LabourCode
+
+    try:
+        item_name = request.GET.get('item_name', '').strip()
+        code = request.GET.get('code', '').strip()
+        category = request.GET.get('category', '').strip()
+
+        labour_codes = []
+
+        if code:
+            # Search by code (exact match)
+            lc = LabourCode.lookup_by_code(code)
+            if lc:
+                labour_codes = [lc]
+        elif item_name:
+            # Search by item name
+            lc = LabourCode.lookup_by_name(item_name, category if category else None)
+            if lc:
+                labour_codes = [lc]
+            else:
+                # If no exact match, search by description
+                labour_codes = list(LabourCode.search_by_description(item_name, category if category else None)[:10])
+
+        result = []
+        for lc in labour_codes:
+            result.append({
+                'id': lc.id,
+                'code': lc.code,
+                'description': lc.description,
+                'item_name': lc.item_name,
+                'brand': lc.brand,
+                'quantity': lc.quantity,
+                'tire_type': lc.tire_type,
+                'category': lc.category
+            })
+
+        return JsonResponse({
+            'success': True,
+            'labour_codes': result
+        })
+
+    except Exception as e:
+        logger.error(f"Error looking up labour code: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)

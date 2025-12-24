@@ -164,6 +164,7 @@ urlpatterns = [
     path("api/orders/start/", views_start_order.api_start_order, name="api_start_order"),
     path("api/orders/check-plate/", views_start_order.api_check_plate, name="api_check_plate"),
     path("api/orders/service-types/", views_start_order.api_service_types, name="api_service_types"),
+    path("api/orders/lookup-labour-code/", views_start_order.api_lookup_labour_code, name="api_lookup_labour_code"),
     path("api/orders/create-from-modal/", views_start_order.api_create_order_from_modal, name="api_create_order_from_modal"),
     path("api/orders/update-from-extraction/", views_start_order.api_update_order_from_extraction, name="api_update_order_from_extraction"),
     path("api/orders/quick-stop/", views_start_order.api_quick_stop_order, name="api_quick_stop_order"),

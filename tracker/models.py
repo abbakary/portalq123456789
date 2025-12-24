@@ -188,10 +188,18 @@ class LabourCode(models.Model):
     Mapping of item codes to order types/categories.
     Used to automatically determine order type when processing invoices.
     Category values: 'labour', 'service', 'tyre service', 'sales', or 'unspecified'.
+    Now includes item detail information (name, brand, etc.) for order updates.
     """
     code = models.CharField(max_length=32, unique=True, db_index=True)
     description = models.CharField(max_length=255)
     category = models.CharField(max_length=64, help_text="Order type category: 'labour', 'service', 'tyre service', 'sales', or 'unspecified'")
+
+    # Item-related information (used when updating orders)
+    item_name = models.CharField(max_length=255, blank=True, null=True, help_text="Item name for sales/labour orders")
+    brand = models.CharField(max_length=128, blank=True, null=True, help_text="Brand name for items")
+    quantity = models.PositiveIntegerField(blank=True, null=True, help_text="Default quantity for items")
+    tire_type = models.CharField(max_length=64, blank=True, null=True, help_text="Type of tire (e.g., New, Used, Radial, etc.)")
+
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -202,10 +210,49 @@ class LabourCode(models.Model):
             models.Index(fields=['code'], name='idx_labour_code'),
             models.Index(fields=['category'], name='idx_labour_category'),
             models.Index(fields=['is_active'], name='idx_labour_active'),
+            models.Index(fields=['item_name'], name='idx_labour_item_name'),
         ]
 
     def __str__(self):
+        if self.item_name:
+            return f"{self.code} - {self.description} ({self.item_name}, {self.brand or 'No Brand'}) [{self.category}]"
         return f"{self.code} - {self.description} ({self.category})"
+
+    def get_item_details(self):
+        """Return labour code item details as a dictionary."""
+        return {
+            'code': self.code,
+            'description': self.description,
+            'item_name': self.item_name,
+            'brand': self.brand,
+            'quantity': self.quantity,
+            'tire_type': self.tire_type,
+            'category': self.category,
+        }
+
+    @classmethod
+    def lookup_by_name(cls, item_name, category=None):
+        """
+        Lookup labour code by item name (and optionally category).
+        Returns the first matching active labour code or None.
+        """
+        query = cls.objects.filter(is_active=True, item_name__iexact=item_name)
+        if category:
+            query = query.filter(category=category)
+        return query.first()
+
+    @classmethod
+    def lookup_by_code(cls, code):
+        """Lookup labour code by code value."""
+        return cls.objects.filter(is_active=True, code__iexact=code).first()
+
+    @classmethod
+    def search_by_description(cls, search_term, category=None):
+        """Search labour codes by description."""
+        query = cls.objects.filter(is_active=True, description__icontains=search_term)
+        if category:
+            query = query.filter(category=category)
+        return query
 
 
 class Order(models.Model):
