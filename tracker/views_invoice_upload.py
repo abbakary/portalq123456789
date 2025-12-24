@@ -1086,11 +1086,22 @@ def api_create_invoice_from_upload(request):
             
             # Update started order with invoice data
             try:
+                # Build order description from invoice line items
+                order_description = order.description or ""
+
+                # Append line item descriptions if they exist
+                line_items = InvoiceLineItem.objects.filter(invoice=inv)
+                if line_items.exists():
+                    line_descriptions = [item.description for item in line_items if item.description]
+                    if line_descriptions:
+                        items_text = "Invoice Items:\n" + "\n".join(line_descriptions)
+                        order_description = f"{order_description}\n\n{items_text}" if order_description else items_text
+
                 order = OrderService.update_order_from_invoice(
                     order=order,
                     customer=customer_obj,
                     vehicle=vehicle,
-                    description=order.description
+                    description=order_description
                 )
             except Exception as e:
                 logger.warning(f"Failed to update order from invoice: {e}")
