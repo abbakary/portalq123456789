@@ -1,19 +1,18 @@
 """
-Management command to seed default ServiceTemplate, ServiceType, ServiceAddon,
-and InvoicePatternMatcher data.
+Management command to seed default ServiceType, ServiceAddon, Brand, and InventoryItem data.
 Usage: python manage.py seed_service_templates
 """
 
 from django.core.management.base import BaseCommand
-from tracker.models import ServiceTemplate, InvoicePatternMatcher, ServiceType, ServiceAddon, Brand, InventoryItem
+from tracker.models import ServiceType, ServiceAddon, Brand, InventoryItem
 import random
 
 
 class Command(BaseCommand):
-    help = 'Seed default service templates, service types, add-ons, and invoice pattern matchers'
+    help = 'Seed default service types, add-ons, brands, and inventory items'
 
     def handle(self, *args, **options):
-        self.stdout.write('Seeding service templates, types, add-ons and patterns...')
+        self.stdout.write('Seeding service types, add-ons, brands and inventory items...')
 
         # Service Types - for 'Service' orders
         service_types_data = [
