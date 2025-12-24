@@ -1,5 +1,6 @@
 from pathlib import Path
 import os
+import logging
 import pymysql
 
 # Apply compatibility monkeypatch for Django template Context on Python 3.14+
