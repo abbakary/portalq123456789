@@ -732,19 +732,48 @@ def api_update_order_from_extraction(request):
             except (ValueError, TypeError):
                 est_duration = None
 
-            # Build description with services if provided
+            # Build description with services/items if provided
             final_description = description or ''
+            final_est_duration = est_duration
+
             if services:
                 service_list = [s.strip() for s in services.split(',') if s.strip()]
                 if service_list:
                     services_text = f"Services: {', '.join(service_list)}"
                     final_description = f"{final_description}\n{services_text}" if final_description else services_text
 
+                    # Calculate estimated duration from service types if available
+                    try:
+                        service_types = ServiceType.objects.filter(name__in=service_list, is_active=True)
+                        total_minutes = sum(int(s.estimated_minutes or 0) for s in service_types)
+                        if total_minutes > 0:
+                            final_est_duration = total_minutes
+                    except Exception:
+                        pass
+
+            # Add item details if this is a sales/mixed order
+            if item_name:
+                item_desc = f"Item: {item_name}"
+                if brand:
+                    item_desc += f" ({brand})"
+                if quantity:
+                    item_desc += f" - Qty: {quantity}"
+                if tire_type and tire_type != 'New':
+                    item_desc += f" - Type: {tire_type}"
+
+                final_description = f"{final_description}\n{item_desc}" if final_description else item_desc
+
+                # Update order with sales/item information
+                order.item_name = item_name
+                order.brand = brand or None
+                order.quantity = quantity or None
+                order.tire_type = tire_type or 'New'
+
             # Update order fields
             order.description = final_description
             order.priority = priority if priority in ['low', 'medium', 'high', 'urgent'] else 'medium'
-            if est_duration:
-                order.estimated_duration = est_duration
+            if final_est_duration:
+                order.estimated_duration = final_est_duration
 
             order.save()
 
