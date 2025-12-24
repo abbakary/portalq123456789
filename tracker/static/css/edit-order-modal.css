@@ -20,6 +20,9 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  opacity: 1 !important;
+  background-color: #ffffff !important;
+  visibility: visible !important;
 }
 
 /* Modal Header */
@@ -287,8 +290,12 @@
 
 /* Modal backdrop */
 #editOrderDetailsModal + .modal-backdrop {
-  opacity: 0.5;
-  background-color: #000;
+  opacity: 0.3 !important;
+  background-color: #000 !important;
+}
+
+.modal-backdrop.show {
+  opacity: 0.3 !important;
 }
 
 /* Responsive adjustments */
