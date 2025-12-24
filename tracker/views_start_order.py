@@ -929,6 +929,7 @@ def api_create_order_from_modal(request):
 
         with transaction.atomic():
             from .services import VehicleService
+            from decimal import Decimal
 
             # Create or get vehicle if plate is provided
             vehicle = None
@@ -946,20 +947,118 @@ def api_create_order_from_modal(request):
             except (ValueError, TypeError):
                 est_duration = None
 
+            # Build final description with service/sales details and calculate estimated duration
+            final_description = description or ""
+            final_est_duration = est_duration
+
+            # Handle service orders - process service selections
+            if order_type == 'service':
+                service_selection = request.POST.getlist('service_selection')
+                if service_selection:
+                    desc_services = "Selected services: " + ", ".join(service_selection)
+                    if final_description:
+                        final_description = final_description + "\n" + desc_services
+                    else:
+                        final_description = desc_services
+
+                    # Calculate estimated duration from service types
+                    try:
+                        service_types = ServiceType.objects.filter(name__in=service_selection, is_active=True)
+                        total_minutes = sum(int(s.estimated_minutes or 0) for s in service_types)
+                        final_est_duration = total_minutes or est_duration or 50
+                    except Exception:
+                        pass
+
+            # Handle sales orders - process item and tire service details
+            elif order_type == 'sales':
+                item_name = request.POST.get('item_name', '').strip()
+                brand = request.POST.get('brand', '').strip()
+                quantity = request.POST.get('quantity', '').strip()
+                tire_type = request.POST.get('tire_type', 'New').strip()
+
+                # Build sales order description with item details
+                if item_name:
+                    sales_desc = f"Item: {item_name}"
+                    if brand:
+                        sales_desc += f" ({brand})"
+                    if quantity:
+                        sales_desc += f" - Qty: {quantity}"
+                    if tire_type and tire_type != 'New':
+                        sales_desc += f" - Type: {tire_type}"
+
+                    if final_description:
+                        final_description = final_description + "\n" + sales_desc
+                    else:
+                        final_description = sales_desc
+
+                # Process tire services (add-ons)
+                tire_services = request.POST.getlist('tire_services')
+                if tire_services:
+                    desc_services = "Tire services: " + ", ".join(tire_services)
+                    if final_description:
+                        final_description = final_description + "\n" + desc_services
+                    else:
+                        final_description = desc_services
+
+                    # Calculate estimated duration from tire services
+                    try:
+                        addons = ServiceAddon.objects.filter(name__in=tire_services, is_active=True)
+                        addon_minutes = sum(int(a.estimated_minutes or 0) for a in addons)
+                        current_duration = final_est_duration or 0
+                        final_est_duration = current_duration + addon_minutes if addon_minutes > 0 else current_duration
+                    except Exception:
+                        pass
+
+            # Handle inquiry orders - process inquiry details
+            elif order_type == 'inquiry':
+                inquiry_type = request.POST.get('inquiry_type', '').strip()
+                questions = request.POST.get('questions', '').strip()
+                contact_preference = request.POST.get('contact_preference', '').strip()
+                follow_up_date = request.POST.get('follow_up_date', '').strip()
+
+                inquiry_desc = f"Inquiry Type: {inquiry_type}" if inquiry_type else "Customer Inquiry"
+                if questions:
+                    inquiry_desc += f"\nQuestions: {questions}"
+                if contact_preference:
+                    inquiry_desc += f"\nContact Preference: {contact_preference}"
+
+                if final_description:
+                    final_description = final_description + "\n" + inquiry_desc
+                else:
+                    final_description = inquiry_desc
+
+            # Set final description if empty
+            if not final_description:
+                final_description = f"{order_type.title()} Order"
+
             # Create order using OrderService to ensure proper visit tracking
-            order = OrderService.create_order(
-                customer=customer,
-                order_type=order_type,
-                branch=user_branch,
-                vehicle=vehicle,
-                description=description or f"Order for {customer.full_name}",
-                priority=priority if priority in ['low', 'medium', 'high', 'urgent'] else 'medium',
-                estimated_duration=est_duration,
-            )
+            order_kwargs = {
+                'customer': customer,
+                'order_type': order_type,
+                'branch': user_branch,
+                'vehicle': vehicle,
+                'description': final_description,
+                'priority': priority if priority in ['low', 'medium', 'high', 'urgent'] else 'medium',
+                'estimated_duration': final_est_duration,
+            }
+
+            # Add type-specific fields for service creation
+            if order_type == 'sales':
+                order_kwargs['item_name'] = request.POST.get('item_name', '').strip() or None
+                order_kwargs['brand'] = request.POST.get('brand', '').strip() or None
+                order_kwargs['quantity'] = request.POST.get('quantity', '').strip() or None
+                order_kwargs['tire_type'] = request.POST.get('tire_type', 'New').strip()
+
+            elif order_type == 'inquiry':
+                order_kwargs['inquiry_type'] = request.POST.get('inquiry_type', '').strip() or None
+                order_kwargs['questions'] = request.POST.get('questions', '').strip() or None
+                order_kwargs['contact_preference'] = request.POST.get('contact_preference', '').strip() or None
+                order_kwargs['follow_up_date'] = request.POST.get('follow_up_date', '').strip() or None
+
+            order = OrderService.create_order(**order_kwargs)
 
             # For upload type, create an invoice with extracted data
             if order_type == 'upload':
-                from decimal import Decimal
                 try:
                     subtotal_val = Decimal(str(subtotal or '0').replace(',', ''))
                     tax_val = Decimal(str(tax_amount or '0').replace(',', ''))
@@ -982,7 +1081,6 @@ def api_create_order_from_modal(request):
 
                     # If description contains item details, create line items
                     if description:
-                        from .models import InvoiceLineItem
                         lines = description.split('\n')
                         for line in lines:
                             if line.strip():
