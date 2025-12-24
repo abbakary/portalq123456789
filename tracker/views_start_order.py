@@ -430,12 +430,26 @@ def started_order_detail(request, order_id):
                 order.vehicle.save()
 
         elif action == 'update_order_details':
-            # Update selected services, add-ons, items, and estimated duration
+            # Update selected services, add-ons, items, estimated duration, and order type
             try:
                 services = request.POST.getlist('services') or []
                 est = request.POST.get('estimated_duration') or None
                 item_id = request.POST.get('item_id') or None
                 item_quantity = request.POST.get('item_quantity') or None
+                new_order_type = request.POST.get('order_type') or None
+
+                # Handle order type change
+                if new_order_type and new_order_type != order.type:
+                    old_type = order.type
+                    order.type = new_order_type
+                    # Clear item details if changing from sales
+                    if old_type == 'sales':
+                        order.item_name = None
+                        order.brand = None
+                        order.quantity = None
+                    # Clear description to avoid confusion when changing types
+                    order.description = ''
+                    logger.info(f"Order {order.id} type changed from {old_type} to {new_order_type}")
 
                 # Handle item/brand update for sales orders
                 if order.type == 'sales' and item_id:
