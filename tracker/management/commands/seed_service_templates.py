@@ -248,4 +248,4 @@ class Command(BaseCommand):
                 self.stdout.write(f'  → Already exists: {pattern.name}')
         
         self.stdout.write(self.style.SUCCESS(f'\nInvoice Patterns: {created_count} created'))
-        self.stdout.write(self.style.SUCCESS('\n✓ Seeding complete! Service templates and patterns are ready to use.'))
+        self.stdout.write(self.style.SUCCESS('\n✓ Seeding complete! Service types, add-ons, templates and patterns are ready to use.'))
