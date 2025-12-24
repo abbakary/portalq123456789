@@ -438,11 +438,12 @@ def started_order_detail(request, order_id):
 
         elif action == 'update_order_details':
             # Update selected services, add-ons, items, estimated duration, and order type
-            # Now supports labour code lookup for item data
+            # Now supports labour code lookup for item data and multiple labour code selections
             try:
                 from .models import LabourCode, InventoryItem
 
                 services = request.POST.getlist('services') or []
+                labour_codes = request.POST.getlist('labour_codes') or []  # Support multiple labour codes
                 est = request.POST.get('estimated_duration') or None
                 item_id = request.POST.get('item_id') or None
                 item_quantity = request.POST.get('item_quantity') or None
@@ -470,7 +471,7 @@ def started_order_detail(request, order_id):
                 if order.type in ['sales', 'service', 'labour']:
                     item_updated = False
 
-                    # Priority 1: Use labour code data if labour_code_id is provided
+                    # Priority 1: Use labour code data if labour_code_id is provided (from modal search)
                     if labour_code_id:
                         try:
                             labour_code = LabourCode.objects.get(id=int(labour_code_id), is_active=True)
@@ -517,6 +518,24 @@ def started_order_detail(request, order_id):
                             logger.warning(f"Inventory item {item_id} not found when updating order {order.id}")
                         except Exception as e:
                             logger.error(f"Error updating item for order {order.id}: {e}")
+
+                # Handle labour codes from checkbox selection (multiple labour codes)
+                if labour_codes and order.type in ['service', 'labour']:
+                    labour_code_items = []
+                    for lc_id in labour_codes:
+                        try:
+                            lc = LabourCode.objects.get(id=int(lc_id), is_active=True)
+                            labour_code_items.append(f"{lc.code} - {lc.description}")
+                        except (LabourCode.DoesNotExist, ValueError):
+                            logger.warning(f"Labour code {lc_id} not found or invalid")
+
+                    if labour_code_items:
+                        # Store labour codes in description
+                        base_desc = order.description or ''
+                        lines = [l for l in base_desc.split('\n') if not l.strip().lower().startswith('labour codes:')]
+                        lines.append(f"Labour Codes: {'; '.join(labour_code_items)}")
+                        order.description = '\n'.join([l for l in lines if l.strip()])
+                        logger.info(f"Order {order.id} updated with {len(labour_codes)} labour codes")
 
                 # Handle services/add-ons update
                 if services:

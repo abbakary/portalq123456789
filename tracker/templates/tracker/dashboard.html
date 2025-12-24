@@ -1024,10 +1024,73 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- Chart.js with fallback and error handling -->
+<script>
+  // Define Chart loading state before script tags
+  window.ChartLoaded = false;
+  window.ChartError = false;
+
+  // Function to handle when Chart.js fails to load from primary CDN
+  function loadChartFallback() {
+    if (window.ChartLoaded || window.ChartError) return;
+    window.ChartError = true;
+    console.warn('Primary CDN failed, attempting fallback CDN for Chart.js');
+
+    // Try alternate CDN
+    var script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js';
+    script.async = true;
+    script.onload = function() {
+      window.ChartLoaded = true;
+      window.ChartError = false;
+      console.log('Chart.js loaded from fallback CDN');
+      // Re-initialize charts
+      window.initializeDashboardCharts && window.initializeDashboardCharts();
+    };
+    script.onerror = function() {
+      console.error('Both Chart.js CDNs failed to load. Charts will be disabled.');
+      window.ChartError = true;
+    };
+    document.head.appendChild(script);
+  }
+
+  // Set a timeout for fallback if CDN is slow
+  var chartLoadTimeout = setTimeout(function() {
+    if (!window.ChartLoaded && !window.ChartError) {
+      loadChartFallback();
+    }
+  }, 3000); // 3 second timeout
+</script>
+
+<!-- Primary Chart.js CDN with async loading -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"
+        async
+        onload="window.ChartLoaded=true; clearTimeout(window.chartLoadTimeout); window.initializeDashboardCharts && window.initializeDashboardCharts();"
+        onerror="loadChartFallback();">
+</script>
+
 <script>
 (function(){
-  document.addEventListener('DOMContentLoaded', function(){
+  // Safe function to initialize charts - only runs when Chart.js is available
+  window.initializeDashboardCharts = function() {
+    // Check if Chart.js is actually loaded
+    if (typeof Chart === 'undefined') {
+      console.warn('Chart.js not available, skipping chart initialization');
+      return;
+    }
+
+    document.addEventListener('DOMContentLoaded', initializeCharts);
+    window.addEventListener('load', initializeCharts);
+  };
+
+  function initializeCharts() {
+    // Only initialize if Chart is available
+    if (typeof Chart === 'undefined') {
+      console.warn('Chart.js library not loaded, charts will not be displayed');
+      return;
+    }
+
+    try {
     // Revenue View Toggle Functionality
     var toggleButtons = document.querySelectorAll('.toggle-btn');
     var allTimeView = document.getElementById('all-time-view');
@@ -1215,10 +1278,15 @@
           }
         });
       }
-    }catch(e){
+    } catch(e) {
       console.error('Error creating order status chart:', e);
     }
-  });
+  }
+
+  // Call the initialization function if Chart.js is already loaded
+  if (typeof Chart !== 'undefined') {
+    window.initializeDashboardCharts();
+  }
 })();
 </script>
 {% endblock %}

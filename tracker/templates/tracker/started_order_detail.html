@@ -779,62 +779,42 @@
                 }
               }
 
-              // Render services/add-ons as checkboxes
+              // Render services/add-ons as attractive card-like checkboxes
               function renderEditServices(services, type) {
                 editServicesContainer.innerHTML = '';
                 if (!services || services.length === 0) {
-                  editServicesContainer.innerHTML = '<div class="col-12 text-muted text-center py-3"><small>No ' + (type === 'addon' ? 'add-ons' : 'services') + ' available</small></div>';
+                  editServicesContainer.innerHTML = '<div class="col-12 text-muted text-center py-3"><small><i class="fa fa-inbox me-2"></i>No ' + (type === 'addon' ? 'add-ons' : 'services') + ' available</small></div>';
                   return;
                 }
 
-                services.forEach(service => {
+                services.forEach((service, index) => {
                   const col = document.createElement('div');
-                  col.className = 'col-md-6';
-                  const minutesHtml = service.estimated_minutes ? ` <span class="badge bg-light text-dark ms-1">${service.estimated_minutes} min</span>` : '';
-                  col.innerHTML = `
-                    <div class="form-check">
-                      <input class="form-check-input edit-service-checkbox" type="checkbox"
-                             id="edit_svc_${service.id || service.name.replace(/\s+/g, '_')}"
-                             name="services"
-                             value="${service.name}">
-                      <label class="form-check-label" for="edit_svc_${service.id || service.name.replace(/\s+/g, '_')}">
-                        ${service.name}${minutesHtml}
-                      </label>
-                    </div>
-                  `;
-                  editServicesContainer.appendChild(col);
-                });
-              }
+                  col.className = 'col-md-6 col-lg-4 mb-2';
+                  const checkboxId = `edit_svc_${service.id || service.name.replace(/\s+/g, '_')}`;
+                  const icon = type === 'addon' ? 'fa-plus-circle' : 'fa-wrench';
+                  const color = type === 'addon' ? '#9b59b6' : '#3498db';
+                  const minutes = service.estimated_minutes || 0;
 
-              // Render labour codes as attractive card-like checkboxes
-              function renderEditLabourCodes(labourCodes, type) {
-                editServicesContainer.innerHTML = '';
-                if (!labourCodes || labourCodes.length === 0) {
-                  editServicesContainer.innerHTML = '<div class="col-12 text-muted text-center py-3"><small>No labour codes available</small></div>';
-                  return;
-                }
-
-                labourCodes.forEach((lc, index) => {
-                  const col = document.createElement('div');
-                  col.className = 'col-md-6 col-lg-4';
-                  const checkboxId = `edit_lc_${lc.id || index}`;
                   col.innerHTML = `
-                    <div class="card labour-code-card border-0 shadow-sm" style="cursor: pointer; transition: all 0.2s ease; height: 100%;">
-                      <div class="card-body p-3" style="padding-top: 0.5rem !important;">
+                    <div class="card service-card position-relative border-0 shadow-sm h-100" style="cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); overflow: hidden;">
+                      <div class="card-body p-3 position-relative">
                         <div class="form-check mb-0">
-                          <input class="form-check-input edit-labour-code-checkbox" type="checkbox"
+                          <input class="form-check-input edit-service-checkbox position-absolute" type="checkbox"
                                  id="${checkboxId}"
-                                 name="labour_codes"
-                                 value="${lc.code}"
-                                 data-code="${lc.code}"
-                                 data-name="${lc.item_name || lc.description}"
-                                 data-brand="${lc.brand || 'N/A'}">
-                          <label class="form-check-label w-100" for="${checkboxId}" style="cursor: pointer;">
-                            <div class="d-flex justify-content-between align-items-start">
+                                 name="services"
+                                 value="${service.name}"
+                                 style="opacity: 0; width: 100%; height: 100%; cursor: pointer;">
+                          <label class="form-check-label w-100 mb-0" for="${checkboxId}" style="cursor: pointer; display: block;">
+                            <div class="d-flex align-items-start gap-2 h-100">
+                              <div class="flex-shrink-0 pt-1">
+                                <i class="fa ${icon}" style="color: ${color}; font-size: 1.25rem;"></i>
+                              </div>
                               <div class="flex-grow-1">
-                                <strong class="d-block mb-1">${lc.item_name || lc.description}</strong>
-                                <small class="text-muted d-block">Code: <code>${lc.code}</code></small>
-                                <small class="text-muted d-block">Brand: ${lc.brand || 'N/A'}</small>
+                                <strong class="d-block mb-2 text-truncate" style="font-size: 0.95rem;">${service.name}</strong>
+                                ${minutes > 0 ? `<small class="text-muted d-block"><i class="fa fa-clock me-1"></i><strong>${minutes} min</strong></small>` : '<small class="text-muted d-block text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.5px;">' + (type === 'addon' ? 'Add-on' : 'Service') + '</small>'}
+                              </div>
+                              <div class="flex-shrink-0">
+                                <i class="fa fa-check-circle position-absolute" style="color: ${color}; font-size: 1.5rem; right: 0.75rem; top: 0.75rem; opacity: 0; transition: opacity 0.2s ease;"></i>
                               </div>
                             </div>
                           </label>
@@ -844,34 +824,167 @@
                   `;
                   editServicesContainer.appendChild(col);
 
-                  // Add click event to the card for better interactivity
-                  const card = col.querySelector('.labour-code-card');
+                  // Add interactivity
+                  const card = col.querySelector('.service-card');
                   const checkbox = col.querySelector('input[type="checkbox"]');
+                  const checkIcon = col.querySelector('i.fa-check-circle');
+
                   card.addEventListener('click', function(e) {
-                    if (e.target !== checkbox) {
+                    if (e.target.type !== 'checkbox') {
                       checkbox.checked = !checkbox.checked;
+                      checkbox.dispatchEvent(new Event('change', { bubbles: true }));
                     }
                   });
+
                   card.addEventListener('mouseenter', function() {
-                    this.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
+                    if (!checkbox.checked) {
+                      this.style.boxShadow = '0 6px 16px rgba(0, 0, 0, 0.12)';
+                    }
                     this.style.transform = 'translateY(-2px)';
                   });
+
                   card.addEventListener('mouseleave', function() {
-                    this.style.boxShadow = '0 0.125rem 0.25rem rgba(0, 0, 0, 0.075)';
+                    if (checkbox.checked) {
+                      this.style.boxShadow = `0 4px 14px rgba(${color === '#3498db' ? '52, 152, 219' : '155, 89, 182'}, 0.4), inset 0 0 0 2px ${color}`;
+                    } else {
+                      this.style.boxShadow = '0 0.125rem 0.25rem rgba(0, 0, 0, 0.075)';
+                    }
+                    this.style.transform = 'translateY(0)';
+                  });
+
+                  checkbox.addEventListener('change', function() {
+                    if (this.checked) {
+                      card.style.borderColor = color;
+                      card.style.borderWidth = '2px';
+                      card.style.borderStyle = 'solid';
+                      card.style.backgroundColor = color === '#3498db' ? '#ebf5fb' : '#f4ecf7';
+                      card.style.boxShadow = `0 4px 14px rgba(${color === '#3498db' ? '52, 152, 219' : '155, 89, 182'}, 0.4), inset 0 0 0 2px ${color}`;
+                      checkIcon.style.opacity = '1';
+                    } else {
+                      card.style.borderColor = 'transparent';
+                      card.style.borderWidth = '1px';
+                      card.style.backgroundColor = 'white';
+                      card.style.boxShadow = '0 0.125rem 0.25rem rgba(0, 0, 0, 0.075)';
+                      checkIcon.style.opacity = '0';
+                    }
+                  });
+                });
+              }
+
+              // Render labour codes as attractive card-like checkboxes
+              function renderEditLabourCodes(labourCodes, type) {
+                editServicesContainer.innerHTML = '';
+                if (!labourCodes || labourCodes.length === 0) {
+                  editServicesContainer.innerHTML = '<div class="col-12 text-muted text-center py-3"><small><i class="fa fa-inbox me-2"></i>No labour codes available</small></div>';
+                  return;
+                }
+
+                labourCodes.forEach((lc, index) => {
+                  const col = document.createElement('div');
+                  col.className = 'col-md-6 col-lg-4 mb-2';
+                  const checkboxId = `edit_lc_${lc.id || index}`;
+
+                  // Determine category icon and color
+                  let categoryIcon = 'fa-tools';
+                  let categoryColor = '#667eea';
+                  const category = (lc.category || '').toLowerCase();
+                  if (category.includes('labour')) {
+                    categoryIcon = 'fa-hammer';
+                    categoryColor = '#e74c3c';
+                  } else if (category.includes('service')) {
+                    categoryIcon = 'fa-wrench';
+                    categoryColor = '#3498db';
+                  } else if (category.includes('sales')) {
+                    categoryIcon = 'fa-shopping-cart';
+                    categoryColor = '#27ae60';
+                  } else if (category.includes('tyre')) {
+                    categoryIcon = 'fa-circle-notch';
+                    categoryColor = '#f39c12';
+                  }
+
+                  col.innerHTML = `
+                    <div class="card labour-code-card position-relative border-0 shadow-sm h-100" style="cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); overflow: hidden;">
+                      <div class="card-body p-3 position-relative">
+                        <div class="form-check mb-0">
+                          <input class="form-check-input edit-labour-code-checkbox position-absolute" type="checkbox"
+                                 id="${checkboxId}"
+                                 name="labour_codes"
+                                 value="${lc.id}"
+                                 data-labour-code-id="${lc.id}"
+                                 data-code="${lc.code}"
+                                 data-name="${lc.item_name || lc.description}"
+                                 data-brand="${lc.brand || 'N/A'}"
+                                 data-category="${lc.category || 'unspecified'}"
+                                 style="opacity: 0; width: 100%; height: 100%; cursor: pointer;">
+                          <label class="form-check-label w-100 mb-0" for="${checkboxId}" style="cursor: pointer; display: block;">
+                            <div class="d-flex align-items-start gap-2 h-100">
+                              <div class="flex-shrink-0 pt-1">
+                                <i class="fa ${categoryIcon}" style="color: ${categoryColor}; font-size: 1.25rem;"></i>
+                              </div>
+                              <div class="flex-grow-1 min-width-0">
+                                <strong class="d-block mb-2 text-truncate" style="font-size: 0.95rem;">${lc.item_name || lc.description}</strong>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.85rem;">
+                                  <small class="text-muted d-block"><strong>Code:</strong> <code style="background: #f5f5f5; padding: 2px 4px; border-radius: 3px;">${lc.code}</code></small>
+                                  <small class="text-muted d-block"><strong>Brand:</strong> ${lc.brand || 'N/A'}</small>
+                                </div>
+                                <small class="text-muted d-block mt-2"><strong>Type:</strong> <span style="display: inline-block; background: ${categoryColor}20; color: ${categoryColor}; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; text-transform: capitalize;">${lc.category || 'unspecified'}</span></small>
+                              </div>
+                              <div class="flex-shrink-0">
+                                <i class="fa fa-check-circle position-absolute" style="color: #27ae60; font-size: 1.5rem; right: 0.75rem; top: 0.75rem; opacity: 0; transition: opacity 0.2s ease;"></i>
+                              </div>
+                            </div>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  `;
+                  editServicesContainer.appendChild(col);
+
+                  // Add interactivity to the card
+                  const card = col.querySelector('.labour-code-card');
+                  const checkbox = col.querySelector('input[type="checkbox"]');
+                  const checkIcon = col.querySelector('i.fa-check-circle');
+
+                  // Click to toggle checkbox
+                  card.addEventListener('click', function(e) {
+                    if (e.target.type !== 'checkbox') {
+                      checkbox.checked = !checkbox.checked;
+                      checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                  });
+
+                  // Hover effects
+                  card.addEventListener('mouseenter', function() {
+                    if (!checkbox.checked) {
+                      this.style.boxShadow = '0 6px 16px rgba(0, 0, 0, 0.12)';
+                    }
+                    this.style.transform = 'translateY(-2px)';
+                  });
+
+                  card.addEventListener('mouseleave', function() {
+                    if (checkbox.checked) {
+                      this.style.boxShadow = `0 4px 14px rgba(102, 126, 234, 0.4), inset 0 0 0 2px #667eea`;
+                    } else {
+                      this.style.boxShadow = '0 0.125rem 0.25rem rgba(0, 0, 0, 0.075)';
+                    }
                     this.style.transform = 'translateY(0)';
                   });
 
                   // Update card styling when checkbox changes
                   checkbox.addEventListener('change', function() {
                     if (this.checked) {
-                      card.style.borderColor = '#0d6efd';
+                      card.style.borderColor = '#667eea';
                       card.style.borderWidth = '2px';
                       card.style.borderStyle = 'solid';
-                      card.classList.add('bg-light');
+                      card.style.backgroundColor = '#f0f4ff';
+                      card.style.boxShadow = '0 4px 14px rgba(102, 126, 234, 0.4), inset 0 0 0 2px #667eea';
+                      checkIcon.style.opacity = '1';
                     } else {
                       card.style.borderColor = 'transparent';
                       card.style.borderWidth = '1px';
-                      card.classList.remove('bg-light');
+                      card.style.backgroundColor = 'white';
+                      card.style.boxShadow = '0 0.125rem 0.25rem rgba(0, 0, 0, 0.075)';
+                      checkIcon.style.opacity = '0';
                     }
                   });
                 });
