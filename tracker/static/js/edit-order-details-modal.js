@@ -46,21 +46,24 @@
   function handleModalShow() {
     const editModal = document.getElementById('editOrderDetailsModal');
     const modalBody = editModal.querySelector('.modal-body');
-    
+
     if (modalBody) {
       // Reset inline height constraints
       modalBody.style.maxHeight = '';
       modalBody.style.minHeight = '';
-      
+
       // Force a reflow to ensure content is rendered
       void editModal.offsetHeight;
-      
+
       // Adjust height based on content
       adjustModalHeight();
-      
+
       // Ensure scroll position is at top
       modalBody.scrollTop = 0;
     }
+
+    // Ensure all buttons and form elements are enabled and clickable
+    enableAllInteractiveElements(editModal);
   }
 
   /**
