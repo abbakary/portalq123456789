@@ -5,7 +5,8 @@ Usage: python manage.py seed_service_templates
 """
 
 from django.core.management.base import BaseCommand
-from tracker.models import ServiceTemplate, InvoicePatternMatcher, ServiceType, ServiceAddon
+from tracker.models import ServiceTemplate, InvoicePatternMatcher, ServiceType, ServiceAddon, Brand, InventoryItem
+import random
 
 
 class Command(BaseCommand):
