@@ -806,6 +806,77 @@
                 });
               }
 
+              // Render labour codes as attractive card-like checkboxes
+              function renderEditLabourCodes(labourCodes, type) {
+                editServicesContainer.innerHTML = '';
+                if (!labourCodes || labourCodes.length === 0) {
+                  editServicesContainer.innerHTML = '<div class="col-12 text-muted text-center py-3"><small>No labour codes available</small></div>';
+                  return;
+                }
+
+                labourCodes.forEach((lc, index) => {
+                  const col = document.createElement('div');
+                  col.className = 'col-md-6 col-lg-4';
+                  const checkboxId = `edit_lc_${lc.id || index}`;
+                  col.innerHTML = `
+                    <div class="card labour-code-card border-0 shadow-sm" style="cursor: pointer; transition: all 0.2s ease; height: 100%;">
+                      <div class="card-body p-3" style="padding-top: 0.5rem !important;">
+                        <div class="form-check mb-0">
+                          <input class="form-check-input edit-labour-code-checkbox" type="checkbox"
+                                 id="${checkboxId}"
+                                 name="labour_codes"
+                                 value="${lc.code}"
+                                 data-code="${lc.code}"
+                                 data-name="${lc.item_name || lc.description}"
+                                 data-brand="${lc.brand || 'N/A'}">
+                          <label class="form-check-label w-100" for="${checkboxId}" style="cursor: pointer;">
+                            <div class="d-flex justify-content-between align-items-start">
+                              <div class="flex-grow-1">
+                                <strong class="d-block mb-1">${lc.item_name || lc.description}</strong>
+                                <small class="text-muted d-block">Code: <code>${lc.code}</code></small>
+                                <small class="text-muted d-block">Brand: ${lc.brand || 'N/A'}</small>
+                              </div>
+                            </div>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  `;
+                  editServicesContainer.appendChild(col);
+
+                  // Add click event to the card for better interactivity
+                  const card = col.querySelector('.labour-code-card');
+                  const checkbox = col.querySelector('input[type="checkbox"]');
+                  card.addEventListener('click', function(e) {
+                    if (e.target !== checkbox) {
+                      checkbox.checked = !checkbox.checked;
+                    }
+                  });
+                  card.addEventListener('mouseenter', function() {
+                    this.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
+                    this.style.transform = 'translateY(-2px)';
+                  });
+                  card.addEventListener('mouseleave', function() {
+                    this.style.boxShadow = '0 0.125rem 0.25rem rgba(0, 0, 0, 0.075)';
+                    this.style.transform = 'translateY(0)';
+                  });
+
+                  // Update card styling when checkbox changes
+                  checkbox.addEventListener('change', function() {
+                    if (this.checked) {
+                      card.style.borderColor = '#0d6efd';
+                      card.style.borderWidth = '2px';
+                      card.style.borderStyle = 'solid';
+                      card.classList.add('bg-light');
+                    } else {
+                      card.style.borderColor = 'transparent';
+                      card.style.borderWidth = '1px';
+                      card.classList.remove('bg-light');
+                    }
+                  });
+                });
+              }
+
               // Populate item dropdown
               function populateItemDropdown() {
                 const items = allServices.inventory_items || [];
