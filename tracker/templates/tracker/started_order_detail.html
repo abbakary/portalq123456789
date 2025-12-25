@@ -1254,37 +1254,44 @@ document.addEventListener('DOMContentLoaded', function(){
       const formData = new FormData(this);
       const submitBtn = this.querySelector('button[type="submit"]');
       const originalText = submitBtn.innerHTML;
+      const formAction = this.action;
+
+      console.log('Submitting form to:', formAction);
+      console.log('Form data includes action:', formData.get('action'));
+
       submitBtn.innerHTML = '<i class="fa fa-spinner fa-spin me-2"></i>Saving...';
       submitBtn.disabled = true;
 
-      fetch(this.action, {
+      fetch(formAction, {
         method: 'POST',
         body: formData,
-        redirect: 'follow'
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest'
+        }
       })
       .then(r => {
-        if (r.ok) {
-          // Reload page to show updated order details
+        console.log('Response status:', r.status);
+        if (r.ok || r.status === 302 || r.status === 301 || r.status === 307 || r.status === 308) {
+          // Success or redirect - reload page to show updated order details
           setTimeout(() => {
             window.location.reload();
           }, 500);
+        } else if (r.status === 404) {
+          console.error('404 Error: Endpoint not found at', formAction);
+          alert('Error: The update endpoint was not found (404). Please check your URL configuration.');
+          submitBtn.innerHTML = originalText;
+          submitBtn.disabled = false;
         } else {
-          // Check if it's a redirect response (3xx status)
-          if (r.type === 'opaqueredirect' || (r.status >= 300 && r.status < 400)) {
-            // Redirect successful, reload
-            setTimeout(() => {
-              window.location.reload();
-            }, 500);
-          } else {
-            alert('Failed to update order details. Status: ' + r.status);
-            submitBtn.innerHTML = originalText;
-            submitBtn.disabled = false;
-          }
+          console.error('Request failed with status:', r.status);
+          alert('Failed to update order details. Status: ' + r.status);
+          submitBtn.innerHTML = originalText;
+          submitBtn.disabled = false;
         }
       })
       .catch(error => {
         console.error('Error submitting form:', error);
-        alert('An error occurred. Please try again.');
+        console.error('Form action URL was:', formAction);
+        alert('An error occurred. Please try again. Check browser console for details.');
         submitBtn.innerHTML = originalText;
         submitBtn.disabled = false;
       });
