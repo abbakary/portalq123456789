@@ -1414,17 +1414,16 @@ document.addEventListener('DOMContentLoaded', function(){
 
   const delayReasonsByCategoryJson = {};
   try {
-    const delayReasonsData = {{ delay_reasons_by_category|safe }};
-    if (typeof delayReasonsData === 'string') {
-      Object.assign(delayReasonsByCategoryJson, JSON.parse(delayReasonsData));
-    } else {
+    const delayReasonsJsonString = '{{ delay_reasons_by_category|escapejs }}';
+    if (delayReasonsJsonString && delayReasonsJsonString.trim()) {
+      const delayReasonsData = JSON.parse(delayReasonsJsonString);
       Object.assign(delayReasonsByCategoryJson, delayReasonsData);
     }
   } catch (e) {
     console.error('Error parsing delay reasons:', e);
   }
 
-  const exceeds9Hours = {{ exceeds_9_hours|lower }};
+  const exceeds9Hours = {{ exceeds_9_hours|lower|default:"false" }};
 
   function populateReasons(category) {
     delayReasonDropdown.innerHTML = '<option value="">-- Select Specific Reason --</option>';
