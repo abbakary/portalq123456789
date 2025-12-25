@@ -1328,13 +1328,12 @@ document.addEventListener('DOMContentLoaded', function() {
       col.className = 'service-col';
       const checkboxId = `edit_svc_${service.id || service.name.replace(/\s+/g, '_')}`;
       const minutes = service.estimated_minutes || 0;
-      const typeLabel = type === 'addon' ? 'Add-on' : 'Service';
 
       col.innerHTML = `
         <div class="service-card-wrapper">
-          <div class="form-check service-card mb-0" style="cursor: pointer; position: relative; border: 1px solid #ddd; border-radius: 6px; padding: 1.2rem; background: #fff; transition: all 0.25s ease; box-shadow: 0 1px 3px rgba(0,0,0,0.08); min-height: auto; display: flex; flex-direction: row; align-items: flex-start; gap: 1rem;">
+          <div class="form-check service-card mb-0" style="cursor: pointer; position: relative; border: 1px solid #ddd; border-radius: 6px; padding: 1.2rem; background: #fff; transition: all 0.25s ease; box-shadow: 0 1px 3px rgba(0,0,0,0.08); min-height: auto; display: flex; flex-direction: row; align-items: center; gap: 1rem;">
             <input class="form-check-input service-check" type="checkbox" id="${checkboxId}" name="services[]" value="${service.name}" style="position: absolute; opacity: 0; width: 100%; height: 100%; cursor: pointer; top: 0; left: 0; z-index: 1; margin: 0;">
-            <label class="form-check-label w-100 mb-0" for="${checkboxId}" style="cursor: pointer; display: grid; grid-template-columns: ${minutes > 0 ? '2fr 1fr 1fr 1fr' : '2fr 1fr 1fr'}; gap: 1.5rem; margin-bottom: 0; position: relative; z-index: 0; flex-grow: 1; align-items: center;">
+            <label class="form-check-label w-100 mb-0" for="${checkboxId}" style="cursor: pointer; display: grid; grid-template-columns: ${minutes > 0 ? '2fr 1fr 1fr' : '2fr 1fr'}; gap: 2rem; margin-bottom: 0; position: relative; z-index: 0; flex-grow: 1; align-items: center;">
               <!-- Title -->
               <div style="font-weight: 600; color: #222; font-size: 0.95rem; line-height: 1.4; word-break: break-word;">
                 ${service.name}
@@ -1347,12 +1346,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 <span style="color: #333; font-weight: 600;">${minutes} min</span>
               </div>
               ` : ''}
-
-              <!-- Type -->
-              <div style="display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.85rem; color: #666;">
-                <span style="font-weight: 500; color: #666;">Type</span>
-                <span style="color: #0d6efd; font-weight: 600; cursor: pointer;">${typeLabel}</span>
-              </div>
             </label>
 
             <!-- Checkmark icon -->
