@@ -556,9 +556,50 @@
       }
 
       #editOrderDetailsModal #editServicesContainer {
-        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
         gap: 0.75rem;
       }
+
+      #editOrderDetailsModal .labour-code-card,
+      #editOrderDetailsModal .service-card {
+        padding: 0.75rem;
+      }
+
+      #editOrderDetailsModal .labour-code-card .card-body,
+      #editOrderDetailsModal .service-card .card-body {
+        padding: 0;
+      }
+    }
+
+    @media (max-width: 480px) {
+      #editOrderDetailsModal .modal-dialog {
+        margin: 0 !important;
+        width: 100% !important;
+        height: 100vh;
+      }
+
+      #editOrderDetailsModal .modal-content {
+        max-height: 100vh;
+        border-radius: 0;
+      }
+
+      #editOrderDetailsModal #editServicesContainer {
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: 0.5rem;
+      }
+
+      #editOrderDetailsModal .labour-code-card,
+      #editOrderDetailsModal .service-card {
+        padding: 0.5rem;
+      }
+
+      #editOrderDetailsModal .labour-code-card .fa-check-circle,
+      #editOrderDetailsModal .service-card .fa-check-circle {
+        font-size: 1.25rem;
+        right: 0.5rem;
+        top: 0.5rem;
+      }
+    }
     }
 
     @keyframes modalSlideIn {
