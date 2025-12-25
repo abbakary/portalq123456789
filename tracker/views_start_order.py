@@ -401,9 +401,15 @@ def started_order_detail(request, order_id):
     - Manually enter customer details
     - Upload document and auto-populate
     - Edit and complete the order
-    
+
     GET params:
     - tab: Active tab ('overview', 'customer', 'vehicle', 'document', 'order_details')
+
+    POST actions:
+    - update_customer: Update customer details
+    - update_vehicle: Update vehicle details
+    - update_order_details: Update order type, services, items, and duration
+    - complete_order: Complete the order with signature and delay reason
     """
     user_branch = get_user_branch(request.user)
     is_admin = getattr(request.user, 'is_superuser', False) or getattr(request.user, 'is_staff', False)
@@ -411,10 +417,11 @@ def started_order_detail(request, order_id):
     branch_mismatch = False
     if user_branch and order.branch and order.branch != user_branch:
         branch_mismatch = True
-    
+
     if request.method == 'POST':
         # Handle form submissions for different sections
         action = request.POST.get('action')
+        logger.info(f"POST request to started_order_detail for order {order_id}, action='{action}', user={request.user.username}")
 
         if action == 'update_customer':
             # Update customer details
